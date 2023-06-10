@@ -1,0 +1,37 @@
+query PullRequestStatusChecks($id: ID!) {
+  node(id: $id) {
+    ... on PullRequest {
+      statusCheckRollup: commits(last: 1) {
+        nodes {
+          commit {
+            statusCheckRollup {
+              contexts(first: 100) {
+                nodes {
+                  __typename
+                  ... on CheckRun {
+                    id
+                    url
+                    externalId
+                    name
+                    status
+                    conclusion
+                    startedAt
+                    completedAt
+                    detailsUrl
+                    isRequired(pullRequestId: $id)
+                    databaseId
+                  }
+                }
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
+              }
+              id
+            }
+          }
+        }
+      }
+    }
+  }
+}

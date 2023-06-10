@@ -1,0 +1,8 @@
+[package]
+name = "github-schema"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+cynic = { version = "3.0.2" }

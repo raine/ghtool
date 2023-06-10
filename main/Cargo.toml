@@ -1,0 +1,38 @@
+[package]
+name = "ghtool"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "ght"
+path = "src/main.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+color-eyre = "0.6.2"
+cynic = { version = "3.0.2", features = ["serde_json"] }
+cynic-codegen = "3.0.2"
+eyre = "0.6.8"
+octocrab = "0.25.1"
+serde_json = "1.0.96"
+tokio = { version = "1.28.2", features = ["macros", "rt-multi-thread", "process", "io-util"] }
+tracing = "0.1.37"
+tracing-subscriber = {version = "0.3.17", default-features = false, features = ["env-filter", "fmt", "ansi"]}
+github-schema = { path = "../github_schema" }
+serde = "1.0.164"
+http = "0.2.9"
+hyper = "0.14.26"
+toml = "0.7.4"
+regex = "1.8.4"
+serde_yaml = "0.9.21"
+dirs = "5.0.1"
+futures = "0.3.28"
+strip-ansi-escapes = "0.1.1"
+argh = "0.1.10"
+lazy_static = "1.4.0"
+clap = { version = "4.3.3", features = ["derive"] }
+term_size = "0.3.2"
+
+[build-dependencies]
+cynic-codegen = { version = "3.0.2", features = ["rkyv"] }

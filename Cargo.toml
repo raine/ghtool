@@ -1,0 +1,12 @@
+[workspace]
+members = [
+    "main",
+    "github_schema"
+]
+
+default-members = [
+    "main"
+]
+
+[profile.dev]
+debug = 0
