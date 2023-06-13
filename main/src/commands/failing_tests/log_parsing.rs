@@ -4,7 +4,7 @@ use regex::Regex;
 const TIMESTAMP_PATTERN: &str = r"(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)";
 
 lazy_static! {
-    /// Regex to match a timestamp at the start of a line including the whitespace after it
+    /// Regex to match a timestamp
     static ref TIMESTAMP: Regex = Regex::new(TIMESTAMP_PATTERN).unwrap();
 
     /// Regex to match a failing jest test. The path needs to contain at least one slash.
@@ -15,28 +15,32 @@ lazy_static! {
     .unwrap();
 }
 
+/// Collect failing tests from the logs by reading lines from a line that matches JEST_FAIL
+/// until there is a line where there is something else than whitespace in the same column
+/// as the FAIL match.
+///
+/// 2021-05-04T18:24:29.000Z FAIL src/components/MyComponent/MyComponent.test.tsx
+/// 2021-05-04T18:24:29.000Z   ● Test suite failed to run
+/// 2021-05-04T18:24:29.000Z     TypeError: Cannot read property 'foo' of undefined
+/// 2021-05-04T18:24:29.000Z
+/// 2021-05-04T18:24:29.000Z       1 | import React from 'react';
+/// 2021-05-04T18:24:29.000Z PASS src/components/MyComponent/MyComponent.test.tsx
 pub fn extract_failing_tests(logs: &str) -> Result<Vec<Vec<String>>, eyre::Error> {
     let mut fail_start_col = 0;
     let mut in_test_case = false;
     let mut current_fail_lines = Vec::new();
     let mut failing_tests_inner = Vec::new();
 
-    // Collect failing tests from the logs by reading lines from a line that matches JEST_FAIL
-    // until there is a line where there is something else than whitespace in the same column
-    // as the FAIL match.
-    //
-    // 2021-05-04T18:24:29.000Z FAIL src/components/MyComponent/MyComponent.test.tsx
-    // 2021-05-04T18:24:29.000Z   ● Test suite failed to run
-    // 2021-05-04T18:24:29.000Z     TypeError: Cannot read property 'foo' of undefined
-    // 2021-05-04T18:24:29.000Z
-    // 2021-05-04T18:24:29.000Z       1 | import React from 'react';
-    // 2021-05-04T18:24:29.000Z PASS src/components/MyComponent/MyComponent.test.tsx
+    let get_line_without_ts = |line: &str, fail_start_col: usize| -> String {
+        line.chars().skip(fail_start_col).collect()
+    };
+
     for full_line in logs.lines() {
         let line_no_ansi = String::from_utf8(strip_ansi_escapes::strip(full_line.as_bytes())?)?;
-        let line_no_timestamp = TIMESTAMP.replace(full_line, "");
 
         if let Some(caps) = JEST_FAIL_LINE.captures(&line_no_ansi) {
             fail_start_col = caps.name("fail").unwrap().start();
+            let line_no_timestamp = get_line_without_ts(&line_no_ansi, fail_start_col);
             current_fail_lines.push(line_no_timestamp.to_string());
             in_test_case = true;
         } else if in_test_case {
@@ -47,6 +51,7 @@ pub fn extract_failing_tests(logs: &str) -> Result<Vec<Vec<String>>, eyre::Error
                 current_fail_lines = Vec::new();
                 in_test_case = false;
             } else {
+                let line_no_timestamp = get_line_without_ts(&line_no_ansi, fail_start_col);
                 current_fail_lines.push(line_no_timestamp.to_string());
             }
         }
@@ -70,4 +75,75 @@ pub fn extract_failing_test_files(logs: &str) -> Result<Vec<String>, eyre::Error
     }
 
     Ok(test_files)
+}
+
+// Tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_extract_failing_tests() {
+        let logs = r#"
+2021-05-04T18:24:29.000Z FAIL src/components/MyComponent/MyComponent.test.tsx
+2021-05-04T18:24:29.000Z   ● Test suite failed to run
+2021-05-04T18:24:29.000Z     TypeError: Cannot read property 'foo' of undefined
+2021-05-04T18:24:29.000Z
+2021-05-04T18:24:29.000Z       1 | import React from 'react';
+2021-05-04T18:24:29.000Z PASS src/components/MyComponent/MyComponent.test.tsx
+2021-05-04T18:24:29.000Z FAIL src/components/MyComponent/MyComponent2.test.tsx
+2021-05-04T18:24:29.000Z   ● Test suite failed to run
+2021-05-04T18:24:29.000Z     TypeError: Cannot read property 'foo' of undefined
+2021-05-04T18:24:29.000Z
+2021-05-04T18:24:29.000Z       1 | import React from 'react';
+2021-05-04T18:24:29.000Z PASS src/components/MyComponent/MyComponent2.test.tsx"#;
+
+        let failing_tests = extract_failing_tests(logs).unwrap();
+        assert_eq!(
+            failing_tests,
+            vec![
+                vec![
+                    "FAIL src/components/MyComponent/MyComponent.test.tsx".to_string(),
+                    "  ● Test suite failed to run".to_string(),
+                    "    TypeError: Cannot read property 'foo' of undefined".to_string(),
+                    "".to_string(),
+                    "      1 | import React from 'react';".to_string(),
+                ],
+                vec![
+                    "FAIL src/components/MyComponent/MyComponent2.test.tsx".to_string(),
+                    "  ● Test suite failed to run".to_string(),
+                    "    TypeError: Cannot read property 'foo' of undefined".to_string(),
+                    "".to_string(),
+                    "      1 | import React from 'react';".to_string(),
+                ],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_extract_failing_test_files() {
+        let logs = r#"
+2021-05-04T18:24:29.000Z FAIL src/components/MyComponent/MyComponent.test.tsx
+2021-05-04T18:24:29.000Z   ● Test suite failed to run
+2021-05-04T18:24:29.000Z     TypeError: Cannot read property 'foo' of undefined
+2021-05-04T18:24:29.000Z
+2021-05-04T18:24:29.000Z       1 | import React from 'react';
+2021-05-04T18:24:29.000Z PASS src/components/MyComponent/MyComponent2.test.tsx
+2021-05-04T18:24:29.000Z FAIL src/components/MyComponent/MyComponent3.test.tsx
+2021-05-04T18:24:29.000Z   ● Test suite failed to run
+2021-05-04T18:24:29.000Z     TypeError: Cannot read property 'foo' of undefined
+2021-05-04T18:24:29.000Z
+2021-05-04T18:24:29.000Z       1 | import React from 'react';
+2021-05-04T18:24:29.000Z PASS src/components/MyComponent/MyComponent4.test.tsx"#;
+
+        let failing_tests = extract_failing_test_files(logs).unwrap();
+        assert_eq!(
+            failing_tests,
+            vec![
+                "src/components/MyComponent/MyComponent.test.tsx".to_string(),
+                "src/components/MyComponent/MyComponent3.test.tsx".to_string(),
+            ]
+        );
+    }
 }
