@@ -16,8 +16,8 @@ async fn run() -> Result<()> {
     let (cli, repo, branch, repo_config) = setup()?;
 
     match &cli.command {
-        Some(Commands::FailingTests { summary }) => {
-            commands::failing_tests(&repo, &branch, &repo_config, *summary).await
+        Some(Commands::FailingTests { files }) => {
+            commands::failing_tests(&repo, &branch, &repo_config, *files).await
         }
         None => Ok(()),
     }

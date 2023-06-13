@@ -14,8 +14,8 @@ pub struct Cli {
 pub enum Commands {
     /// Get the failing tests for the current branch's pull request's checks
     FailingTests {
-        /// Show a summary instead of failing test files
+        /// Output only the path to failing test file
         #[clap(long, short)]
-        summary: bool,
+        files: bool,
     },
 }

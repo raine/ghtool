@@ -13,23 +13,13 @@ use crate::{
 lazy_static! {
     /// Regex to match a timestamp at the start of a line including the whitespace after it
     static ref TIMESTAMP: Regex = Regex::new(
-        r"(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+"
+        r"(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s"
     ).unwrap();
 
     /// Regex to match a failing jest test. The path needs to contain at least one slash.
     /// Example: 2021-05-04T18:24:29.000Z FAIL src/components/MyComponent/MyComponent.test.tsx
     static ref JEST_FAIL: Regex = Regex::new(
-        r"(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+FAIL\s+(?P<path>[a-zA-Z0-9._-]*/[a-zA-Z0-9./_-]*)"
-    ).unwrap();
-
-    /// Regex to match the start of jest summary
-    static ref JEST_SUMMARY_START: Regex = Regex::new(
-        r"(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+Summary of all failing tests$"
-    ).unwrap();
-
-    /// Regex to match the end of jest summary
-    static ref JEST_SUMMARY_END: Regex = Regex::new(
-        r"(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+Ran all test suites"
+        r"(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(?P<fail>FAIL)\s+(?P<path>[a-zA-Z0-9._-]*/[a-zA-Z0-9./_-]*)"
     ).unwrap();
 }
 
@@ -37,7 +27,7 @@ pub async fn failing_tests(
     repo: &Repository,
     branch: &str,
     repo_config: &RepoConfig,
-    summary: bool,
+    show_files_only: bool,
 ) -> Result<()> {
     let pr = github::get_pr_for_branch(repo, branch).await?;
     let pr_id = pr.node_id.expect("pr node_id is missing");
@@ -73,59 +63,10 @@ pub async fn failing_tests(
         exit_with_message(0, &format!("{}  All test checks are green", green("✓")));
     }
 
-    if summary {
-        get_summary(repo, failing_test_check_runs).await?;
+    if show_files_only {
+        get_failing_test_files(repo, failing_test_check_runs).await?;
     } else {
         get_failing_tests(repo, failing_test_check_runs).await?;
-    }
-
-    Ok(())
-}
-
-pub async fn get_summary(
-    repo: &Repository,
-    failing_test_check_runs: Vec<&github::CheckRun>,
-) -> Result<()> {
-    let log_futures = failing_test_check_runs.iter().map(|cr| async {
-        let bytes = github::get_job_logs(repo, cr.id).await?;
-        let logs = String::from_utf8_lossy(&bytes);
-        let mut in_summary = false;
-        let mut lines = vec![];
-        for line in logs.lines() {
-            let without_ansi_bytes = strip_ansi_escapes::strip(line)?;
-            let without_ansi = String::from_utf8(without_ansi_bytes.to_vec())?;
-
-            if JEST_SUMMARY_START.is_match(&without_ansi) {
-                in_summary = true;
-            } else if JEST_SUMMARY_END.is_match(&without_ansi) {
-                in_summary = false;
-            } else if in_summary {
-                lines.push(TIMESTAMP.replace(line, "").to_string());
-            }
-        }
-
-        Ok::<_, eyre::Error>(lines)
-    });
-
-    let summaries = futures::future::join_all(log_futures).await;
-    if summaries.iter().all(|s| s.as_ref().unwrap().is_empty()) {
-        println!("No failing test summaries found in log output");
-        std::process::exit(0);
-    }
-
-    for (check_run, summary) in failing_test_check_runs.iter().zip(summaries) {
-        print_header(&format!(
-            "{} {}\n{} {}",
-            bold("Job:"),
-            check_run.name,
-            bold("Url:"),
-            check_run.url.as_ref().unwrap()
-        ));
-
-        for line in summary? {
-            println!("{}", line);
-        }
-        println!();
     }
 
     Ok(())
@@ -138,9 +79,72 @@ pub async fn get_failing_tests(
     let log_futures = failing_test_check_runs.iter().map(|cr| async {
         let bytes = github::get_job_logs(repo, cr.id).await?;
         let logs = String::from_utf8_lossy(&bytes);
+        let mut fail_start_col = 0;
+        let mut in_test_case = false;
+        let mut current_fail_lines = Vec::new();
+        let mut fails = Vec::new();
+        for full_line in logs.lines() {
+            let line_no_ansi = String::from_utf8(strip_ansi_escapes::strip(full_line.as_bytes())?)?;
+            let line_no_timestamp = TIMESTAMP.replace(full_line, "");
+
+            if let Some(caps) = JEST_FAIL.captures(&line_no_ansi) {
+                fail_start_col = caps.name("fail").unwrap().start();
+                current_fail_lines.push(line_no_timestamp.to_string());
+                in_test_case = true;
+            } else if in_test_case {
+                if line_no_ansi.len() > fail_start_col
+                    && line_no_ansi.chars().nth(fail_start_col) != Some(' ')
+                {
+                    fails.push(current_fail_lines);
+                    current_fail_lines = Vec::new();
+                    in_test_case = false;
+                } else {
+                    current_fail_lines.push(line_no_timestamp.to_string());
+                }
+            }
+        }
+
+        Ok::<_, eyre::Error>(fails)
+    });
+
+    let summaries = futures::future::join_all(log_futures).await;
+    if summaries.iter().all(|s| s.as_ref().unwrap().is_empty()) {
+        println!("No failing test summaries found in log output");
+        std::process::exit(0);
+    }
+
+    for (check_run, failing_test) in failing_test_check_runs.iter().zip(summaries) {
+        print_header(&format!(
+            "{} {}\n{} {}",
+            bold("Job:"),
+            check_run.name,
+            bold("Url:"),
+            check_run.url.as_ref().unwrap()
+        ));
+
+        for fail in failing_test.unwrap() {
+            for line in fail {
+                println!("{}", line);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn get_failing_test_files(
+    repo: &Repository,
+    failing_test_check_runs: Vec<&github::CheckRun>,
+) -> Result<()> {
+    let log_futures = failing_test_check_runs.iter().map(|cr| async {
+        let bytes = github::get_job_logs(repo, cr.id).await?;
+        let logs = String::from_utf8_lossy(&bytes);
         let mut failing_test_files = Vec::new();
-        for cap in JEST_FAIL.captures_iter(&logs) {
-            failing_test_files.push(cap["path"].to_string());
+        for full_line in logs.lines() {
+            let line_no_ansi = String::from_utf8(strip_ansi_escapes::strip(full_line.as_bytes())?)?;
+            if let Some(caps) = JEST_FAIL.captures(&line_no_ansi) {
+                failing_test_files.push(caps["path"].to_string());
+            }
         }
         Ok::<_, eyre::Error>(failing_test_files)
     });
