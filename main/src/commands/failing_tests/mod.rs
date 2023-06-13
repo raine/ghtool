@@ -28,12 +28,12 @@ pub async fn failing_tests(
     let (test_check_runs, any_in_progress) = filter_test_runs(&check_runs, repo_config);
 
     if test_check_runs.is_empty() {
-        println!(
+        eprintln!(
             "No test jobs found matching the pattern /{}/",
             repo_config.test_job_pattern
         );
     } else if any_in_progress {
-        println!("No failed test runs, but some checks are still pending");
+        eprintln!("No failed test runs, but some checks are still pending");
     } else {
         process_failing_runs(repo, test_check_runs, show_files_only).await?;
     }
@@ -100,7 +100,7 @@ pub async fn get_failing_tests(
     }
 
     if failing_tests.iter().all(|s| s.is_empty()) {
-        println!("No failing tests found in log output");
+        eprintln!("No failing tests found in log output");
         return Ok(());
     }
 
@@ -141,7 +141,7 @@ pub async fn get_failing_test_files(
     }
 
     if failing_test_files.is_empty() {
-        println!("No failing test files found in log output");
+        eprintln!("No failing test files found in log output");
         return Ok(());
     }
 
