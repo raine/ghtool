@@ -3,6 +3,7 @@ use eyre::Result;
 use setup::setup;
 use term::exit_with_error;
 
+mod cache;
 mod cli;
 mod commands;
 mod gh_config;

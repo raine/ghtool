@@ -7,6 +7,14 @@ pub struct Repository {
     pub name: String,
     pub hostname: String,
 }
+
+impl std::fmt::Display for Repository {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let key = format!("{}/{}/{}", self.hostname, self.owner, self.name);
+        write!(f, "{}", key)
+    }
+}
+
 pub struct Git {
     pub directory: PathBuf,
 }

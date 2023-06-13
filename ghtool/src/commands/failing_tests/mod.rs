@@ -22,7 +22,7 @@ pub async fn failing_tests(
     repo_config: &RepoConfig,
     show_files_only: bool,
 ) -> Result<()> {
-    let pr = github::get_pr_for_branch(repo, branch).await?;
+    let pr = github::get_pr_for_branch_memoized(repo, branch).await?;
     let pr_id = pr.node_id.expect("pr node_id is missing");
     let check_runs = github::get_pr_status_checks(&pr_id).await?;
     let (test_check_runs, any_in_progress) = filter_test_runs(&check_runs, repo_config);
@@ -87,7 +87,7 @@ pub async fn get_failing_tests(
 ) -> Result<()> {
     let mut log_futures: FuturesUnordered<_> = failing_test_check_runs
         .iter()
-        .map(|cr| github::get_job_logs(repo, cr.id))
+        .map(|cr| github::get_job_logs(repo, cr))
         .collect();
 
     let mut failing_tests = Vec::new();
@@ -129,7 +129,7 @@ pub async fn get_failing_test_files(
 ) -> Result<()> {
     let mut log_futures: FuturesUnordered<_> = failing_test_check_runs
         .iter()
-        .map(|cr| github::get_job_logs(repo, cr.id))
+        .map(|cr| github::get_job_logs(repo, cr))
         .collect();
 
     let mut failing_test_files: HashSet<String> = HashSet::new();

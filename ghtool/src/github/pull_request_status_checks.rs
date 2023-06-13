@@ -1,7 +1,9 @@
 use eyre::Result;
+use tracing::info;
 
 use crate::github::graphql as gql;
 
+#[derive(Debug)]
 pub struct CheckRun {
     pub name: String,
     pub id: u64,
@@ -10,6 +12,7 @@ pub struct CheckRun {
 }
 
 pub async fn get_pr_status_checks(pr_id: &str) -> Result<Vec<CheckRun>> {
+    info!(?pr_id, "getting checks for pr");
     use cynic::QueryBuilder;
 
     let client = octocrab::instance();

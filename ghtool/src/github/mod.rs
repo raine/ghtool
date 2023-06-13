@@ -4,7 +4,7 @@ use hyper::body;
 use octocrab::models::pulls::PullRequest;
 use tracing::info;
 
-use crate::git::Repository;
+use crate::{cache, git::Repository};
 
 pub mod graphql;
 mod pull_request_status_checks;
@@ -30,13 +30,20 @@ pub async fn get_pr_for_branch(repo: &Repository, branch: &str) -> Result<PullRe
     Ok(pr)
 }
 
-pub async fn get_job_logs(repo: &Repository, job_id: u64) -> Result<hyper::body::Bytes> {
+pub async fn get_pr_for_branch_memoized(repo: &Repository, branch: &str) -> Result<PullRequest> {
+    let key = format!("pr_for_branch_{}_{}", repo, branch);
+    cache::memoize(key, || get_pr_for_branch(repo, branch)).await
+}
+
+pub async fn get_job_logs(repo: &Repository, check_run: &CheckRun) -> Result<hyper::body::Bytes> {
+    info!(?check_run, "getting job logs");
+
     let client = octocrab::instance();
     let route = format!(
         "/repos/{owner}/{repo}/actions/jobs/{job_id}/logs",
         owner = repo.owner,
         repo = repo.name,
-        job_id = job_id,
+        job_id = check_run.id,
     );
     let uri = Uri::builder().path_and_query(route).build()?;
     let data_response = client
