@@ -59,3 +59,18 @@ impl Git {
         Ok(repository)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_parse_repository() {
+        let url = "git@github.com:raine/tgreddit.git";
+        let repository = parse_repository(url).unwrap();
+        assert_eq!(repository.owner, "raine");
+        assert_eq!(repository.name, "tgreddit");
+        assert_eq!(repository.hostname, "github.com");
+    }
+}
