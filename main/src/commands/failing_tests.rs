@@ -107,13 +107,13 @@ pub async fn get_failing_tests(
         Ok::<_, eyre::Error>(fails)
     });
 
-    let summaries = futures::future::join_all(log_futures).await;
-    if summaries.iter().all(|s| s.as_ref().unwrap().is_empty()) {
-        println!("No failing test summaries found in log output");
+    let failing_tests = futures::future::try_join_all(log_futures).await?;
+    if failing_tests.iter().all(|s| s.is_empty()) {
+        println!("No failing tests found in log output");
         std::process::exit(0);
     }
 
-    for (check_run, failing_test) in failing_test_check_runs.iter().zip(summaries) {
+    for (check_run, failing_test) in failing_test_check_runs.iter().zip(failing_tests) {
         print_header(&format!(
             "{} {}\n{} {}",
             bold("Job:"),
@@ -122,7 +122,7 @@ pub async fn get_failing_tests(
             check_run.url.as_ref().unwrap()
         ));
 
-        for fail in failing_test.unwrap() {
+        for fail in failing_test {
             for line in fail {
                 println!("{}", line);
             }
@@ -149,10 +149,10 @@ pub async fn get_failing_test_files(
         Ok::<_, eyre::Error>(failing_test_files)
     });
 
-    let results = futures::future::join_all(log_futures).await;
+    let results = futures::future::try_join_all(log_futures).await?;
     let mut failing_test_files = Vec::new();
     for r in results {
-        failing_test_files.extend(r?);
+        failing_test_files.extend(r);
     }
 
     if failing_test_files.is_empty() {
