@@ -1,11 +1,11 @@
 [workspace]
 members = [
-    "main",
+    "ghtool",
     "github_schema"
 ]
 
 default-members = [
-    "main"
+    "ghtool"
 ]
 
 [profile.dev]
