@@ -1,5 +1,7 @@
 # ghtool
 
+![rust](https://github.com/raine/ghtool/actions/workflows/rust.yml/badge.svg)
+
 A command-line tool for interacting with Github API with some specialized
 features oriented around Checks.
 
@@ -28,9 +30,9 @@ token from `~/.config/gh/hosts.yml`.
 
 ## usage
 
-The tool is installed as `ght` for ease of use.
+The tool is installed as executable `ght` for ease of use.
 
-The tool is intended to be run in repository, as it uses the current working
+The tool is intended to be run in a repository, as it uses the current working
 directory to determine the repository to operate on. The current branch is used
 to determine which pull request to query.
 
