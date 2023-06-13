@@ -7,6 +7,7 @@ pub struct RepoConfig {
     /// Regex pattern that is used to match against test job names
     #[serde(deserialize_with = "deserialize_regex")]
     pub test_job_pattern: regex::Regex,
+
     #[serde(deserialize_with = "TestRunner::deserialize")]
     pub test_runner: TestRunner,
 }
