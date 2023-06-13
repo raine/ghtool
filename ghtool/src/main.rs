@@ -16,14 +16,12 @@ mod term;
 async fn run() -> Result<()> {
     let (cli, repo, branch, repo_config) = setup()?;
 
-    let _ = match &cli.command {
+    match &cli.command {
         Some(Commands::FailingTests { files }) => {
             commands::failing_tests(&repo, &branch, &repo_config, *files).await
         }
         None => Ok(()),
-    };
-
-    std::process::exit(0);
+    }
 }
 
 #[tokio::main]
