@@ -1,4 +1,4 @@
-use github_schema as schema;
+use cynic_github_schema as schema;
 
 // https://github.com/obmarg/cynic/issues/713
 #[derive(cynic::Scalar, Debug)]

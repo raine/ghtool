@@ -1,5 +1,5 @@
 [package]
-name = "github-schema"
+name = "cynic-github-schema"
 version = "0.1.0"
 edition = "2021"
 publish = false
