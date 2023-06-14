@@ -2,6 +2,8 @@
 name = "ghtool"
 version = "0.1.0"
 edition = "2021"
+description = "A command-line tool for interacting with Github API with some specialized features oriented around Checks"
+license = "MIT"
 
 [[bin]]
 name = "ght"
