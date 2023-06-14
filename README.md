@@ -15,9 +15,7 @@ features oriented around Checks.
 Rust toolchain is required. Install it from [rustup.rs](https://rustup.rs/).
 
 ```sh
-git clone git@github.com:raine/ghtool.git
-cd ghtool
-cargo install --path .
+cargo install ghtool
 ```
 
 ## setup
