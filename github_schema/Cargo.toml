@@ -2,6 +2,8 @@
 name = "cynic-github-schema"
 version = "0.1.0"
 edition = "2021"
+description = "Github graphql schema for cynic"
+license = "MIT"
 
 [dependencies]
 cynic = { version = "3.1.0" }
