@@ -5,4 +5,4 @@ edition = "2021"
 publish = false
 
 [dependencies]
-cynic = { version = "3.0.2" }
+cynic = { version = "3.1.0" }
