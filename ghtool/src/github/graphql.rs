@@ -1,12 +1,9 @@
-use cynic::serde::{Deserialize, Serialize};
 use github_schema as schema;
 
-#[derive(Serialize, Deserialize, Debug)]
+// https://github.com/obmarg/cynic/issues/713
+#[derive(cynic::Scalar, Debug)]
+#[cynic(graphql_type = "Int")]
 pub struct BigInt(pub u64);
-
-impl cynic::schema::IsScalar<i32> for BigInt {
-    type SchemaType = i32;
-}
 
 // Below is generated with https://generator.cynic-rs.dev using ./pull_request_status_checks.graphql,
 // except database_id is changed from Option<i32> to Option<BigInt> manually.
