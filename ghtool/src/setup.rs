@@ -1,6 +1,8 @@
 use std::{
     env,
     path::{Path, PathBuf},
+    sync::Arc,
+    thread,
 };
 
 use clap::Parser;
@@ -71,8 +73,12 @@ fn get_repo_path() -> Result<PathBuf> {
 }
 
 fn get_git_info(repo_path: &Path) -> Result<(Repository, String)> {
-    let git = Git::new(repo_path.to_path_buf());
-    let repo = git.get_remote()?;
-    let branch = git.get_branch()?;
+    let git = Arc::new(Git::new(repo_path.to_path_buf()));
+    let git1 = Arc::clone(&git);
+    let git2 = Arc::clone(&git);
+    let handle1 = thread::spawn(move || git1.get_remote());
+    let handle2 = thread::spawn(move || git2.get_branch());
+    let repo = handle1.join().unwrap()?;
+    let branch = handle2.join().unwrap()?;
     Ok((repo, branch))
 }
