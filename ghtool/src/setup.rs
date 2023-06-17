@@ -14,27 +14,24 @@ use crate::{
     cli::Cli,
     gh_config::GhConfig,
     git::{Git, Repository},
+    github::GithubClient,
     repo_config::{read_repo_config, RepoConfig},
 };
 
-pub fn setup() -> Result<(Cli, Repository, String, RepoConfig)> {
+pub fn setup() -> Result<(Cli, Repository, String, RepoConfig, GithubClient)> {
     setup_env()?;
     let cli = Cli::parse();
 
     let (gh_config, repo_path, repo_config) = setup_configs()?;
     let (repo, branch) = get_git_info(&repo_path)?;
-    setup_octocrab(&gh_config, &repo)?;
+    let site_config = gh_config.get_site_config(&repo.hostname)?;
+    let github_client = GithubClient::new(site_config.oauth_token.to_string())?;
 
-    Ok((cli, repo, branch, repo_config))
+    Ok((cli, repo, branch, repo_config, github_client))
 }
 
 fn setup_env() -> Result<()> {
     color_eyre::install()?;
-
-    // // Default to info log level
-    // if std::env::var("RUST_LOG").is_err() {
-    //     std::env::set_var("RUST_LOG", "info");
-    // }
 
     if std::env::var("RUST_LIB_BACKTRACE").is_err() {
         std::env::set_var("RUST_LIB_BACKTRACE", "1");
@@ -45,15 +42,6 @@ fn setup_env() -> Result<()> {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
-    Ok(())
-}
-
-fn setup_octocrab(gh_config: &GhConfig, repo: &Repository) -> Result<()> {
-    let site_config = gh_config.get_site_config(&repo.hostname)?;
-    let client = octocrab::Octocrab::builder()
-        .personal_token(site_config.oauth_token.to_string())
-        .build()?;
-    octocrab::initialise(client);
     Ok(())
 }
 

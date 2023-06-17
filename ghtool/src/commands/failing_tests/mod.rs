@@ -3,13 +3,14 @@ use std::collections::HashSet;
 use eyre::Result;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
-use github::graphql::CheckConclusionState;
 
+use crate::github::CheckConclusionState;
+use crate::github::GithubClient;
 use crate::{
     git::Repository,
     github,
     repo_config::RepoConfig,
-    term::{bold, exit_with_message, green, print_header},
+    term::{bold, green, print_header},
 };
 
 mod log_parsing;
@@ -17,33 +18,42 @@ mod log_parsing;
 use log_parsing::*;
 
 pub async fn failing_tests(
+    client: &GithubClient,
     repo: &Repository,
     branch: &str,
     repo_config: &RepoConfig,
     show_files_only: bool,
 ) -> Result<()> {
-    let pr = github::get_pr_for_branch_memoized(repo, branch).await?;
-    let pr_id = pr.node_id.expect("pr node_id is missing");
-    let check_runs = github::get_pr_status_checks(&pr_id).await?;
-    let (test_check_runs, any_in_progress) = filter_test_runs(&check_runs, repo_config);
+    let pr = client
+        .get_pr_for_branch_memoized(&repo.owner, &repo.name, branch)
+        .await?;
+    let check_runs = client.get_pr_status_checks(&pr.id).await?;
+    let (test_check_runs, any_tests_in_progress) = filter_test_runs(&check_runs, repo_config);
 
     if test_check_runs.is_empty() {
         eprintln!(
             "No test jobs found matching the pattern /{}/",
             repo_config.test_job_pattern
         );
-    } else if any_in_progress {
-        eprintln!("No failed test runs, but some checks are still pending");
     } else {
-        process_failing_runs(repo, test_check_runs, show_files_only).await?;
+        process_failing_runs(
+            client,
+            repo,
+            test_check_runs,
+            any_tests_in_progress,
+            show_files_only,
+        )
+        .await?;
     }
 
     Ok(())
 }
 
 async fn process_failing_runs(
+    client: &GithubClient,
     repo: &Repository,
-    test_check_runs: Vec<&github::CheckRun>,
+    test_check_runs: Vec<&github::SimpleCheckRun>,
+    any_tests_in_progress: bool,
     show_files_only: bool,
 ) -> Result<()> {
     let failing_test_check_runs: Vec<_> = test_check_runs
@@ -52,20 +62,27 @@ async fn process_failing_runs(
         .collect();
 
     if failing_test_check_runs.is_empty() {
-        exit_with_message(0, &format!("{}  All test checks are green", green("✓")));
-    } else if show_files_only {
-        get_failing_test_files(repo, failing_test_check_runs).await?;
+        if any_tests_in_progress {
+            eprintln!("⏳  Some test checks are in progress");
+        } else {
+            eprintln!("{}  All test checks are green", green("✓"));
+        }
+        return Ok(());
+    }
+
+    if show_files_only {
+        get_failing_test_files(client, repo, failing_test_check_runs).await?;
     } else {
-        get_failing_tests(repo, failing_test_check_runs).await?;
+        get_failing_tests(client, repo, failing_test_check_runs).await?;
     }
 
     Ok(())
 }
 
 fn filter_test_runs<'a>(
-    check_runs: &'a [github::CheckRun],
+    check_runs: &'a [github::SimpleCheckRun],
     repo_config: &'a RepoConfig,
-) -> (Vec<&'a github::CheckRun>, bool) {
+) -> (Vec<&'a github::SimpleCheckRun>, bool) {
     let mut test_check_runs = Vec::new();
     let mut any_in_progress = false;
 
@@ -82,12 +99,13 @@ fn filter_test_runs<'a>(
 }
 
 pub async fn get_failing_tests(
+    client: &GithubClient,
     repo: &Repository,
-    failing_test_check_runs: Vec<&github::CheckRun>,
+    failing_test_check_runs: Vec<&github::SimpleCheckRun>,
 ) -> Result<()> {
     let mut log_futures: FuturesUnordered<_> = failing_test_check_runs
         .iter()
-        .map(|cr| github::get_job_logs(repo, cr))
+        .map(|cr| client.get_job_logs(&repo.owner, &repo.name, cr.id))
         .collect();
 
     let mut failing_tests = Vec::new();
@@ -124,12 +142,13 @@ pub async fn get_failing_tests(
 }
 
 pub async fn get_failing_test_files(
+    client: &GithubClient,
     repo: &Repository,
-    failing_test_check_runs: Vec<&github::CheckRun>,
+    failing_test_check_runs: Vec<&github::SimpleCheckRun>,
 ) -> Result<()> {
     let mut log_futures: FuturesUnordered<_> = failing_test_check_runs
         .iter()
-        .map(|cr| github::get_job_logs(repo, cr))
+        .map(|cr| client.get_job_logs(&repo.owner, &repo.name, cr.id))
         .collect();
 
     let mut failing_test_files: HashSet<String> = HashSet::new();

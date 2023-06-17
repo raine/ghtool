@@ -1,0 +1,34 @@
+query PullRequestForBranch(
+  $owner: String!
+  $repo: String!
+  $headRefName: String!
+  $states: [PullRequestState!]
+) {
+  repository(owner: $owner, name: $repo) {
+    pullRequests(
+      headRefName: $headRefName
+      states: $states
+      first: 30
+      orderBy: { field: CREATED_AT, direction: DESC }
+    ) {
+      nodes {
+        number
+        headRefName
+        id
+        state
+        baseRefName
+        isCrossRepository
+        headRepositoryOwner {
+          id
+          login
+          ... on User {
+            name
+          }
+        }
+      }
+    }
+    defaultBranchRef {
+      name
+    }
+  }
+}

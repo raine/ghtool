@@ -27,8 +27,3 @@ pub fn exit_with_error<T>(e: eyre::Error) -> T {
     eprintln!("{}", e);
     std::process::exit(1);
 }
-
-pub fn exit_with_message(code: i32, message: &str) {
-    eprintln!("{}", message);
-    std::process::exit(code);
-}

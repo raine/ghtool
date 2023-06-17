@@ -14,11 +14,11 @@ mod setup;
 mod term;
 
 async fn run() -> Result<()> {
-    let (cli, repo, branch, repo_config) = setup()?;
+    let (cli, repo, branch, repo_config, github_client) = setup()?;
 
     match &cli.command {
         Some(Commands::FailingTests { files }) => {
-            commands::failing_tests(&repo, &branch, &repo_config, *files).await
+            commands::failing_tests(&github_client, &repo, &branch, &repo_config, *files).await
         }
         None => Ok(()),
     }
