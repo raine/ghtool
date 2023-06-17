@@ -11,6 +11,7 @@ mod git;
 mod github;
 mod repo_config;
 mod setup;
+mod spinner;
 mod term;
 
 async fn run() -> Result<()> {

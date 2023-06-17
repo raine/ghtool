@@ -1,8 +1,14 @@
+use std::borrow::Cow;
+use std::time::Duration;
+
 use cynic::QueryBuilder;
 use eyre::Result;
+use futures::{Future, StreamExt};
+use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::header::HeaderMap;
 use tracing::info;
 
+use crate::spinner::make_spinner_style;
 use crate::{
     cache,
     github::{
@@ -50,6 +56,20 @@ impl GithubClient {
             .map_err(|e| eyre::eyre!("Failed to build client: {}", e))
     }
 
+    async fn run_with_spinner<F, T>(&self, message: Cow<'static, str>, future: F) -> Result<T>
+    where
+        F: Future<Output = Result<T>>,
+    {
+        let pb = ProgressBar::new_spinner();
+        pb.enable_steady_tick(Duration::from_millis(100));
+        pb.set_style(make_spinner_style());
+        pb.set_message(message);
+        let result = future.await;
+        pb.finish_and_clear();
+
+        result
+    }
+
     pub async fn run_graphql_query<T, K>(&self, operation: cynic::Operation<T, K>) -> Result<T>
     where
         T: serde::de::DeserializeOwned + 'static,
@@ -81,7 +101,13 @@ impl GithubClient {
             states: None,
         });
 
-        let pr_for_branch = self.run_graphql_query(query).await?;
+        let pr_for_branch = self
+            .run_with_spinner(
+                "Fetching pull request...".into(),
+                self.run_graphql_query(query),
+            )
+            .await?;
+
         info!(?pr_for_branch, "got pr");
         let pr = extract_pull_request(pr_for_branch);
         Ok(pr)
@@ -100,7 +126,11 @@ impl GithubClient {
     pub async fn get_pr_status_checks(&self, id: &cynic::Id) -> Result<Vec<SimpleCheckRun>> {
         info!(?id, "getting checks for pr");
         let query = PullRequestStatusChecks::build(PullRequestStatusChecksVariables { id });
-        let pr_checks = self.run_graphql_query(query).await?;
+
+        let pr_checks = self
+            .run_with_spinner("Fetching checks...".into(), self.run_graphql_query(query))
+            .await?;
+
         match pr_checks.node {
             Some(Node::PullRequest(pull_request)) => {
                 let check_runs = extract_check_runs(pull_request)?;
@@ -111,17 +141,38 @@ impl GithubClient {
         }
     }
 
-    pub async fn get_job_logs(&self, owner: &str, repo: &str, job_id: u64) -> Result<bytes::Bytes> {
+    pub async fn get_job_logs(
+        &self,
+        owner: &str,
+        repo: &str,
+        job_id: u64,
+        progress_bar: &ProgressBar,
+    ) -> Result<bytes::Bytes> {
         info!(?owner, ?repo, ?job_id, "getting job logs");
-        let url = format!("{GITHUB_BASE_URI}/repos/{owner}/{repo}/actions/jobs/{job_id}/logs",);
 
-        self.client
-            .get(url)
-            .send()
-            .await?
-            .error_for_status()?
-            .bytes()
-            .await
-            .map_err(|e| eyre::eyre!("Failed to get bytes: {}", e))
+        let mut got_first_chunk = false;
+        let url = format!("{GITHUB_BASE_URI}/repos/{owner}/{repo}/actions/jobs/{job_id}/logs",);
+        let response = self.client.get(url).send().await?.error_for_status()?;
+        let content_length = response.content_length().unwrap_or(0);
+        progress_bar.set_length(content_length);
+        let mut result = bytes::BytesMut::with_capacity(content_length as usize);
+        let mut stream = response.bytes_stream();
+        while let Some(chunk) = stream.next().await {
+            // Start showing bytes in the progress bar only after first chunk is received
+            if !got_first_chunk {
+                progress_bar.set_style(
+                    ProgressStyle::default_bar()
+                        .template("{spinner:.yellow} {msg} {bytes:.dim}")
+                        .unwrap(),
+                );
+            }
+
+            got_first_chunk = true;
+            let chunk = chunk?;
+            progress_bar.inc(chunk.len() as u64);
+            result.extend_from_slice(&chunk);
+        }
+        progress_bar.finish_and_clear();
+        Ok(result.freeze())
     }
 }
