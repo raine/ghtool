@@ -8,6 +8,7 @@ use futures::stream::StreamExt;
 use futures::Future;
 use indicatif::MultiProgress;
 use indicatif::ProgressBar;
+use tracing::info;
 
 use crate::github::CheckConclusionState;
 use crate::github::GithubClient;
@@ -34,6 +35,7 @@ pub async fn failing_tests(
         .get_pr_for_branch_memoized(&repo.owner, &repo.name, branch)
         .await?;
     let check_runs = client.get_pr_status_checks(&pr.id).await?;
+    info!(?check_runs, "got check runs");
     let (test_check_runs, any_tests_in_progress) = filter_test_runs(check_runs, repo_config);
 
     if test_check_runs.is_empty() {

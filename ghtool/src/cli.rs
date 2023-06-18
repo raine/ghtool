@@ -8,6 +8,11 @@ use clap::{Parser, Subcommand};
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
+
+    /// Print verbose output
+    #[arg(global = true)]
+    #[clap(long, short)]
+    pub verbose: bool,
 }
 
 #[derive(Subcommand)]

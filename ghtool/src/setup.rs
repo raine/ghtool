@@ -19,9 +19,13 @@ use crate::{
 };
 
 pub fn setup() -> Result<(Cli, Repository, String, RepoConfig, GithubClient)> {
-    setup_env()?;
     let cli = Cli::parse();
 
+    if cli.verbose {
+        std::env::set_var("RUST_LOG", "info");
+    }
+
+    setup_env()?;
     let (gh_config, repo_path, repo_config) = setup_configs()?;
     let (repo, branch) = get_git_info(&repo_path)?;
     let site_config = gh_config.get_site_config(&repo.hostname)?;
