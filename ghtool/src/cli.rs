@@ -19,8 +19,11 @@ pub struct Cli {
 pub enum Commands {
     /// Get the failing tests for the current branch's pull request's checks
     FailingTests {
-        /// Output only the path to failing test file
+        /// Output only the file paths
         #[clap(long, short)]
         files: bool,
     },
+
+    /// Get lint issues for the current branch's pull request's checks
+    Lint {},
 }

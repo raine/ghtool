@@ -10,6 +10,13 @@ pub struct RepoConfig {
 
     #[serde(deserialize_with = "TestRunner::deserialize")]
     pub test_runner: TestRunner,
+
+    /// Regex pattern that is used to match against lint job names
+    #[serde(deserialize_with = "deserialize_regex")]
+    pub lint_job_pattern: regex::Regex,
+
+    #[serde(deserialize_with = "LintTool::deserialize")]
+    pub lint_tool: LintTool,
 }
 
 #[derive(Debug)]
@@ -27,6 +34,27 @@ impl<'de> Deserialize<'de> for TestRunner {
             "jest" => Ok(TestRunner::Jest),
             _ => Err(serde::de::Error::custom(format!(
                 "invalid test runner: {}",
+                s
+            ))),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum LintTool {
+    Eslint,
+}
+
+impl<'de> Deserialize<'de> for LintTool {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        match s.as_str() {
+            "eslint" => Ok(LintTool::Eslint),
+            _ => Err(serde::de::Error::custom(format!(
+                "invalid lint tool: {}",
                 s
             ))),
         }

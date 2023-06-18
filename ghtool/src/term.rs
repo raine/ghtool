@@ -1,3 +1,5 @@
+use crate::github;
+
 pub fn bold(text: &str) -> String {
     format!("\x1b[1m{}\x1b[0m", text)
 }
@@ -26,4 +28,14 @@ pub fn print_header(header: &str) {
 pub fn exit_with_error<T>(e: eyre::Error) -> T {
     eprintln!("{}", e);
     std::process::exit(1);
+}
+
+pub fn print_check_run_header(check_run: &github::SimpleCheckRun) {
+    print_header(&format!(
+        "{} {}\n{} {}",
+        bold("Job:"),
+        check_run.name,
+        bold("Url:"),
+        check_run.url.as_ref().unwrap()
+    ));
 }

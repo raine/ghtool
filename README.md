@@ -9,6 +9,7 @@ features oriented around Checks.
 
 - List failing tests across all test checks. Useful in big projects where tests
   are split across multiple jobs.
+- List linting issues across all checks.
 
 ## installation
 
@@ -47,6 +48,13 @@ test_job_pattern = "(Unit|Integration|End-to-end) tests sharded"
 # Test runner used in tests. Determines how logs are parsed.
 # One of: jest
 test_runner = "jest"
+
+# A regular expression to match test job names
+lint_job_pattern = "Lint"
+
+# Lint tool used in the checks. Determines how logs are parsed.
+# One of: eslint
+lint_tool = "eslint"
 ```
 
 ## commands
@@ -54,6 +62,10 @@ test_runner = "jest"
 ### `ght failing-tests`
 
 Get the failing tests for the current branch's pull request's checks.
+
+### `ght lint`
+
+Get linting issues for the current branch's pull request's checks.
 
 ## example usage
 

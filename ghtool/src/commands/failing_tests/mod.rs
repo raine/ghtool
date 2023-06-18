@@ -1,24 +1,15 @@
 use std::collections::HashSet;
-use std::time::Duration;
 
-use bytes::Bytes;
 use eyre::Result;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
-use futures::Future;
-use indicatif::MultiProgress;
-use indicatif::ProgressBar;
 use tracing::info;
 
+use crate::github::get_log_futures;
 use crate::github::CheckConclusionState;
 use crate::github::GithubClient;
-use crate::spinner::make_spinner_style;
-use crate::{
-    git::Repository,
-    github,
-    repo_config::RepoConfig,
-    term::{bold, green, print_header},
-};
+use crate::term::print_check_run_header;
+use crate::{git::Repository, github, repo_config::RepoConfig, term::green};
 
 mod log_parsing;
 
@@ -35,8 +26,8 @@ pub async fn failing_tests(
         .get_pr_for_branch_memoized(&repo.owner, &repo.name, branch)
         .await?;
     let check_runs = client.get_pr_status_checks(&pr.id).await?;
-    info!(?check_runs, "got check runs");
     let (test_check_runs, any_tests_in_progress) = filter_test_runs(check_runs, repo_config);
+    info!(?test_check_runs, "got test check runs");
 
     if test_check_runs.is_empty() {
         eprintln!(
@@ -106,7 +97,7 @@ fn filter_test_runs(
     (test_check_runs, any_in_progress)
 }
 
-pub async fn get_failing_tests(
+async fn get_failing_tests(
     client: &GithubClient,
     repo: &Repository,
     failing_test_check_runs: Vec<github::SimpleCheckRun>,
@@ -128,13 +119,7 @@ pub async fn get_failing_tests(
     }
 
     for (check_run, failing_test) in failing_test_check_runs.iter().zip(failing_tests) {
-        print_header(&format!(
-            "{} {}\n{} {}",
-            bold("Job:"),
-            check_run.name,
-            bold("Url:"),
-            check_run.url.as_ref().unwrap()
-        ));
+        print_check_run_header(check_run);
 
         for test_case in failing_test {
             for line in test_case {
@@ -146,34 +131,7 @@ pub async fn get_failing_tests(
     Ok(())
 }
 
-pub fn get_log_futures<'a>(
-    client: &'a GithubClient,
-    repo: &'a Repository,
-    check_runs: &'a [github::SimpleCheckRun],
-) -> FuturesUnordered<impl Future<Output = Result<Bytes>> + 'a> {
-    let m = MultiProgress::new();
-    let log_futures: FuturesUnordered<_> = check_runs
-        .iter()
-        .map(|cr| {
-            let pb = m.add(ProgressBar::new_spinner());
-            pb.enable_steady_tick(Duration::from_millis(100));
-            pb.set_style(make_spinner_style());
-            pb.set_message(format!("Fetching logs for check: {}", cr.name));
-
-            async move {
-                let result = client
-                    .get_job_logs(&repo.owner, &repo.name, cr.id, &pb)
-                    .await;
-                pb.finish_and_clear();
-                result
-            }
-        })
-        .collect();
-
-    log_futures
-}
-
-pub async fn get_failing_test_files(
+async fn get_failing_test_files(
     client: &GithubClient,
     repo: &Repository,
     failing_test_check_runs: Vec<github::SimpleCheckRun>,

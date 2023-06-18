@@ -21,6 +21,9 @@ async fn run() -> Result<()> {
         Some(Commands::FailingTests { files }) => {
             commands::failing_tests(&github_client, &repo, &branch, &repo_config, *files).await
         }
+        Some(Commands::Lint {}) => {
+            commands::lint(&github_client, &repo, &branch, &repo_config).await
+        }
         None => Ok(()),
     }
 }
