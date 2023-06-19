@@ -110,9 +110,7 @@ fn print_failed_lint_issues(
 
         let mut iter = failing_lint_check.iter().peekable();
         while let Some(eslint_path) = iter.next() {
-            println!("{}", eslint_path.path);
-
-            for issue in &eslint_path.issues {
+            for issue in &eslint_path.lines {
                 println!("{}", issue);
             }
 

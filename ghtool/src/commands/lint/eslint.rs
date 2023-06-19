@@ -8,8 +8,12 @@ enum State {
 }
 
 lazy_static! {
+    /// Regex to match a timestamp and single space after it
+    static ref TIMESTAMP: Regex =
+        Regex::new(r"(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s").unwrap();
+
     /// Regex to match a path at the end of line
-    static ref PATH_PATTERN: Regex = Regex::new(
+    static ref PATH: Regex = Regex::new(
         r"\s(?P<path>/[a-zA-Z0-9._-]*/[a-zA-Z0-9./_-]*)$",
     )
     .unwrap();
@@ -28,10 +32,10 @@ lazy_static! {
 /// 2023-06-14T20:22:39.1789066Z ##[warning]  1:42  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types
 ///
 /// Timestamp will not be included.
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct EslintPath {
     pub path: String,
-    pub issues: Vec<String>,
+    pub lines: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -56,7 +60,7 @@ impl EslintLogParser {
         }
     }
 
-    fn get_line_without_ts(&self, line: &str) -> String {
+    fn get_line_from_path_col(&self, line: &str) -> String {
         line.chars().skip(self.current_path_start_col).collect()
     }
 
@@ -65,18 +69,19 @@ impl EslintLogParser {
         line.chars().nth(self.current_path_start_col).is_none()
     }
 
-    fn parse_line(&mut self, line: &str) {
+    fn parse_line(&mut self, raw_line: &str) {
         let line_no_ansi =
-            String::from_utf8(strip_ansi_escapes::strip(line.as_bytes()).unwrap()).unwrap();
+            String::from_utf8(strip_ansi_escapes::strip(raw_line.as_bytes()).unwrap()).unwrap();
 
         match self.state {
             State::LookingForFile => {
-                if let Some(caps) = PATH_PATTERN.captures(&line_no_ansi) {
+                if let Some(caps) = PATH.captures(&line_no_ansi) {
                     self.current_path_start_col = caps.name("path").unwrap().start();
-                    let path = self.get_line_without_ts(&line_no_ansi);
+                    let path = self.get_line_from_path_col(&line_no_ansi);
+                    let line = TIMESTAMP.replace(raw_line, "");
                     self.current_path = Some(EslintPath {
+                        lines: vec![line.to_string()],
                         path,
-                        issues: Vec::new(),
                     });
                     self.state = State::ParsingFile;
                 }
@@ -85,8 +90,8 @@ impl EslintLogParser {
                 self.current_path_lines += 1;
 
                 if ESLINT_ISSUE.is_match(&line_no_ansi) {
-                    let issue = self.get_line_without_ts(&line_no_ansi);
-                    self.current_path.as_mut().unwrap().issues.push(issue);
+                    let line = TIMESTAMP.replace(raw_line, "").to_string();
+                    self.current_path.as_mut().unwrap().lines.push(line);
                     self.seen_eslint_issue_for_current_path = true;
                 } else if self.current_path_lines == 1 {
                     // If the line directly under path does not match ESLINT_ISSUE, reset back to
@@ -172,14 +177,16 @@ mod tests {
             vec![
                 EslintPath {
                     path: "/root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts".to_string(),
-                    issues: vec![
+                    lines: vec![
+                        "/root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts".to_string(),
                         "##[warning]  1:42  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
                             .to_string(),
                     ],
                 },
                 EslintPath {
                     path: "/root_path/project_directory/module_2/setupModule2Test.ts".to_string(),
-                    issues: vec![
+                    lines: vec![
+                        "/root_path/project_directory/module_2/setupModule2Test.ts".to_string(),
                         "##[warning]  166:58  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
                             .to_string(),
                         "##[warning]  309:55  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
@@ -190,14 +197,16 @@ mod tests {
                 },
                 EslintPath {
                     path: "/root_path/project_directory/module_3/getSpecificUploadImageResponse.ts".to_string(),
-                    issues: vec![
+                    lines: vec![
+                        "/root_path/project_directory/module_3/getSpecificUploadImageResponse.ts".to_string(),
                         "##[warning]  4:47  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
                             .to_string(),
                     ],
                 },
                 EslintPath {
                     path: "/root_path/project_directory/module_4/submodule_2/setupInitialDB.ts".to_string(),
-                    issues: vec![
+                    lines: vec![
+                        "/root_path/project_directory/module_4/submodule_2/setupInitialDB.ts".to_string(),
                         "##[error]  1:1   error  Delete `import·*·as·fs·from·'fs';⏎`  prettier/prettier"
                             .to_string(),
                         "##[error]  1:13  error  'fs' is defined but never used       @typescript-eslint/no-unused-vars"
@@ -211,13 +220,13 @@ mod tests {
     #[test]
     fn test_parse_corner_case() {
         let log = r#"
-    2023-06-14T20:10:38.3206108Z ##[debug]Cleaning runner temp folder: /home/runner/work/_temp
-    2023-06-14T20:10:38.3472682Z ##[debug]Starting: Set up job
-    2023-06-14T20:10:41.2671897Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/test/test
-    2023-06-14T20:10:41.2671897Z
-    2023-06-14T20:22:39.1727281Z /root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts
-    2023-06-14T20:22:39.1789066Z ##[warning]  1:42  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types
-    2023-06-14T20:10:41.2671897Z
+2023-06-14T20:10:38.3206108Z ##[debug]Cleaning runner temp folder: /home/runner/work/_temp
+2023-06-14T20:10:38.3472682Z ##[debug]Starting: Set up job
+2023-06-14T20:10:41.2671897Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/test/test
+2023-06-14T20:10:41.2671897Z
+2023-06-14T20:22:39.1727281Z /root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts
+2023-06-14T20:22:39.1789066Z ##[warning]  1:42  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types
+2023-06-14T20:10:41.2671897Z
     "#;
         let output = EslintLogParser::parse(log);
         assert_eq!(
@@ -225,7 +234,8 @@ mod tests {
                 vec![
                     EslintPath {
                         path: "/root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts".to_string(),
-                        issues: vec![
+                        lines: vec![
+                            "/root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts".to_string(),
                             "##[warning]  1:42  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
                                 .to_string(),
                         ],
@@ -258,17 +268,18 @@ mod tests {
         assert_eq!(output, vec![
             EslintPath {
                 path: "/path/to/working/directory/src/components/ComponentWrapper.spec.tsx".to_string(),
-                issues: vec![
-                    "   8:1  warning  Disabled test suite  jest/no-disabled-tests".to_string(),
-                    "  41:7  warning  Disabled test        jest/no-disabled-tests".to_string(),
-                    "  59:7  warning  Disabled test        jest/no-disabled-tests".to_string(),
+                lines: vec![
+                    "\u{1b}[34m@project/package:lint: \u{1b}[0m\u{1b}[0m\u{1b}[4m/path/to/working/directory/src/components/ComponentWrapper.spec.tsx\u{1b}[24m\u{1b}[0m".to_string(),
+                    "\u{1b}[34m@project/package:lint: \u{1b}[0m\u{1b}[0m   \u{1b}[2m8:1\u{1b}[22m  \u{1b}[33mwarning\u{1b}[39m  Disabled test suite  \u{1b}[2mjest/no-disabled-tests\u{1b}[22m\u{1b}[0m".to_string(),
+                    "\u{1b}[34m@project/package:lint: \u{1b}[0m\u{1b}[0m  \u{1b}[2m41:7\u{1b}[22m  \u{1b}[33mwarning\u{1b}[39m  Disabled test        \u{1b}[2mjest/no-disabled-tests\u{1b}[22m\u{1b}[0m".to_string(),
+                    "\u{1b}[34m@project/package:lint: \u{1b}[0m\u{1b}[0m  \u{1b}[2m59:7\u{1b}[22m  \u{1b}[33mwarning\u{1b}[39m  Disabled test        \u{1b}[2mjest/no-disabled-tests\u{1b}[22m\u{1b}[0m".to_string()
                 ],
             },
             EslintPath {
                 path: "/path/to/working/directory/src/hooks/useCustomHook.spec.ts".to_string(),
-                issues: vec![
-                    "  6:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any"
-                        .to_string(),
+                lines: vec![
+                    "\u{1b}[34m@project/package:lint: \u{1b}[0m\u{1b}[0m\u{1b}[4m/path/to/working/directory/src/hooks/useCustomHook.spec.ts\u{1b}[24m\u{1b}[0m".to_string(),
+                    "\u{1b}[34m@project/package:lint: \u{1b}[0m\u{1b}[0m  \u{1b}[2m6:46\u{1b}[22m  \u{1b}[33mwarning\u{1b}[39m  Unexpected any. Specify a different type  \u{1b}[2m@typescript-eslint/no-explicit-any\u{1b}[22m\u{1b}[0m".to_string()
                 ],
             },
         ]);
