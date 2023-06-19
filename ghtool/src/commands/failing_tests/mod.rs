@@ -8,6 +8,7 @@ use tracing::info;
 use crate::github::get_log_futures;
 use crate::github::CheckConclusionState;
 use crate::github::GithubClient;
+use crate::repo_config::TestConfig;
 use crate::term::print_check_run_header;
 use crate::{git::Repository, github, repo_config::RepoConfig, term::green};
 
@@ -22,17 +23,22 @@ pub async fn failing_tests(
     repo_config: &RepoConfig,
     show_files_only: bool,
 ) -> Result<()> {
+    let test_config = repo_config
+        .test
+        .as_ref()
+        .ok_or_else(|| eyre::eyre!("No test config found in .ghtool.toml"))?;
+
     let pr = client
         .get_pr_for_branch_memoized(&repo.owner, &repo.name, branch)
         .await?;
     let check_runs = client.get_pr_status_checks(&pr.id).await?;
-    let (test_check_runs, any_tests_in_progress) = filter_test_runs(check_runs, repo_config);
+    let (test_check_runs, any_tests_in_progress) = filter_test_runs(check_runs, test_config);
     info!(?test_check_runs, "got test check runs");
 
     if test_check_runs.is_empty() {
         eprintln!(
             "No test jobs found matching the pattern /{}/",
-            repo_config.test_job_pattern
+            test_config.job_pattern
         );
     } else {
         process_failing_runs(
@@ -80,13 +86,13 @@ async fn process_failing_runs(
 
 fn filter_test_runs(
     check_runs: Vec<github::SimpleCheckRun>,
-    repo_config: &RepoConfig,
+    test_config: &TestConfig,
 ) -> (Vec<github::SimpleCheckRun>, bool) {
     let mut test_check_runs = Vec::new();
     let mut any_in_progress = false;
 
     for cr in check_runs {
-        if repo_config.test_job_pattern.is_match(&cr.name) {
+        if test_config.job_pattern.is_match(&cr.name) {
             if cr.conclusion.is_none() {
                 any_in_progress = true;
             }

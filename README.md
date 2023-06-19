@@ -52,19 +52,23 @@ A TOML configuration at `.ghtool.toml` at repository root is required.
 #### example
 
 ```toml
+[test]
+
 # A regular expression to match test job names
-test_job_pattern = "(Unit|Integration|End-to-end) tests sharded"
+job_pattern = "(Unit|Integration|End-to-end) tests sharded"
 
 # Test runner used in tests. Determines how logs are parsed.
 # One of: jest
-test_runner = "jest"
+runner = "jest"
+
+[lint]
 
 # A regular expression to match test job names
-lint_job_pattern = "Lint"
+job_pattern = "Lint"
 
 # Lint tool used in the checks. Determines how logs are parsed.
 # One of: eslint
-lint_tool = "eslint"
+tool = "eslint"
 ```
 
 ## example usage

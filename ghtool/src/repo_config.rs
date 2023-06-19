@@ -4,19 +4,28 @@ use std::{fs, path::Path};
 
 #[derive(Debug, Deserialize)]
 pub struct RepoConfig {
+    pub test: Option<TestConfig>,
+    pub lint: Option<LintConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TestConfig {
     /// Regex pattern that is used to match against test job names
     #[serde(deserialize_with = "deserialize_regex")]
-    pub test_job_pattern: regex::Regex,
+    pub job_pattern: regex::Regex,
 
     #[serde(deserialize_with = "TestRunner::deserialize")]
-    pub test_runner: TestRunner,
+    pub runner: TestRunner,
+}
 
-    /// Regex pattern that is used to match against lint job names
+#[derive(Debug, Deserialize)]
+pub struct LintConfig {
     #[serde(deserialize_with = "deserialize_regex")]
-    pub lint_job_pattern: regex::Regex,
+    /// Regex pattern that is used to match against lint job names
+    pub job_pattern: regex::Regex,
 
     #[serde(deserialize_with = "LintTool::deserialize")]
-    pub lint_tool: LintTool,
+    pub tool: LintTool,
 }
 
 #[derive(Debug)]

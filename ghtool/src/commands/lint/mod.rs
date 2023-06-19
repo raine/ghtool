@@ -8,7 +8,7 @@ use tracing::info;
 use crate::{
     git::Repository,
     github::{self, get_log_futures, CheckConclusionState, GithubClient},
-    repo_config::RepoConfig,
+    repo_config::{LintConfig, RepoConfig},
     term::{green, print_check_run_header},
 };
 
@@ -19,17 +19,22 @@ pub async fn lint(
     repo_config: &RepoConfig,
     show_files_only: bool,
 ) -> Result<()> {
+    let lint_config = repo_config
+        .lint
+        .as_ref()
+        .ok_or_else(|| eyre::eyre!("No lint config found in .ghtool.toml"))?;
+
     let pr = client
         .get_pr_for_branch_memoized(&repo.owner, &repo.name, branch)
         .await?;
     let check_runs = client.get_pr_status_checks(&pr.id).await?;
-    let (lint_check_runs, any_in_progress) = filter_lint_check_runs(check_runs, repo_config);
+    let (lint_check_runs, any_in_progress) = filter_lint_check_runs(check_runs, lint_config);
     info!(?lint_check_runs, "got lint check runs");
 
     if lint_check_runs.is_empty() {
         eprintln!(
             "No lint check runs found matching the pattern /{}/",
-            repo_config.lint_job_pattern
+            lint_config.job_pattern
         );
     } else {
         process_failing_checks(
@@ -123,13 +128,13 @@ fn print_failed_lint_issues(
 
 fn filter_lint_check_runs(
     check_runs: Vec<github::SimpleCheckRun>,
-    repo_config: &RepoConfig,
+    lint_config: &LintConfig,
 ) -> (Vec<github::SimpleCheckRun>, bool) {
     let mut lint_check_runs = Vec::new();
     let mut any_in_progress = false;
 
     for cr in check_runs {
-        if repo_config.lint_job_pattern.is_match(&cr.name) {
+        if lint_config.job_pattern.is_match(&cr.name) {
             if cr.conclusion.is_none() {
                 any_in_progress = true;
             }
