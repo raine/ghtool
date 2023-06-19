@@ -24,8 +24,8 @@ cargo install ghtool
 The tool currently uses [`gh`](https://github.com/cli/cli)'s oauth token to
 authenticate against GitHub API.
 
-Install `gh` and run `gh auth login` and `ghtool` should be able to read the
-token from `~/.config/gh/hosts.yml`.
+[Install](https://github.com/cli/cli#installation) `gh` and run `gh auth login`
+and `ghtool` should be able to read the token from `~/.config/gh/hosts.yml`.
 
 ## usage
 
