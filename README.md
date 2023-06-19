@@ -35,6 +35,16 @@ The tool is intended to be run in a repository, as it uses the current working
 directory to determine the repository to operate on. The current branch is used
 to determine which pull request to query.
 
+### commands
+
+#### `ght failing-tests`
+
+Get the failing tests for the current branch's pull request's checks.
+
+#### `ght lint`
+
+Get linting issues for the current branch's pull request's checks.
+
 ## configuration
 
 A TOML configuration at `.ghtool.toml` at repository root is required.
@@ -56,16 +66,6 @@ lint_job_pattern = "Lint"
 # One of: eslint
 lint_tool = "eslint"
 ```
-
-## commands
-
-### `ght failing-tests`
-
-Get the failing tests for the current branch's pull request's checks.
-
-### `ght lint`
-
-Get linting issues for the current branch's pull request's checks.
 
 ## example usage
 
