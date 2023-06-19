@@ -1,8 +1,8 @@
-mod log_parsing;
+mod eslint;
 
+use eslint::*;
 use eyre::Result;
 use futures::{stream::FuturesUnordered, StreamExt};
-use log_parsing::*;
 use tracing::info;
 
 use crate::{
