@@ -18,7 +18,7 @@ async fn run() -> Result<()> {
     let (cli, repo, branch, repo_config, github_client) = setup()?;
 
     match &cli.command {
-        Some(Commands::FailingTests { files }) => {
+        Some(Commands::Tests { files }) => {
             commands::failing_tests(&github_client, &repo, &branch, &repo_config, *files).await
         }
         Some(Commands::Lint { files }) => {

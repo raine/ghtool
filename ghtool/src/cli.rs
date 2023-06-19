@@ -23,7 +23,7 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     /// Get the failing tests for the current branch's pull request's checks
-    FailingTests {
+    Tests {
         /// Output only the file paths
         #[clap(long, short)]
         files: bool,

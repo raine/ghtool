@@ -37,7 +37,7 @@ to determine which pull request to query.
 
 ### commands
 
-#### `ght failing-tests`
+#### `ght tests`
 
 Get the failing tests for the current branch's pull request's checks.
 
@@ -72,7 +72,7 @@ lint_tool = "eslint"
 ### check failing tests
 
 ```
-% ght failing-tests
+% ght tests
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ Job: Unit tests sharded (2)                                                 │
 │ Url: https://github.com/org/repo/actions/runs/5252627921/jobs/9488888294    │
@@ -101,7 +101,7 @@ FAIL src/components/AnotherComponent/AnotherComponent.test.tsx
 ### run tests for failing test files
 
 ```sh
-% ght failing-tests --files | xargs yarn test
+% ght tests --files | xargs yarn test
 yarn run v1.22.19
 $ NODE_ENV=test node ./node_modules/.bin/jest src/moduleA.test.ts src/moduleB.test.ts
 ...
