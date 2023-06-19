@@ -27,9 +27,10 @@ pub fn setup() -> Result<(Cli, Repository, String, RepoConfig, GithubClient)> {
 
     setup_env()?;
     let (gh_config, repo_path, repo_config) = setup_configs()?;
-    let (repo, branch) = get_git_info(&repo_path)?;
+    let (repo, current_branch) = get_git_info(&repo_path)?;
     let site_config = gh_config.get_site_config(&repo.hostname)?;
     let github_client = GithubClient::new(site_config.oauth_token.to_string())?;
+    let branch = cli.branch.as_ref().unwrap_or(&current_branch).to_string();
 
     Ok((cli, repo, branch, repo_config, github_client))
 }

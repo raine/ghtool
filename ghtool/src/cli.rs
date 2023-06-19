@@ -13,6 +13,11 @@ pub struct Cli {
     #[arg(global = true)]
     #[clap(long, short)]
     pub verbose: bool,
+
+    /// Target branch; defaults to current branch
+    #[arg(global = true)]
+    #[clap(long, short)]
+    pub branch: Option<String>,
 }
 
 #[derive(Subcommand)]
