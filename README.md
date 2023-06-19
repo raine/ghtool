@@ -98,6 +98,26 @@ FAIL src/components/AnotherComponent/AnotherComponent.test.tsx
 ...
 ```
 
+### check lint issues
+
+```
+% ght lint
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Job: Lint                                                                   │
+│ Url: https://github.com/org/repo/actions/runs/5252627921/jobs/9488888294    │
+└─────────────────────────────────────────────────────────────────────────────┘
+@org/module:lint: /path/to/work/directory/src/components/component-directory/subcomponent-file/index.tsx
+@org/module:lint:    99:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+@org/module:lint:   109:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+@org/module:lint:   143:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+@org/module:lint: /path/to/work/directory/src/components/another-component/ComponentTest.spec.tsx
+@org/module:lint:   30:33  warning  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+
+@org/another-module:lint: /path/to/work/directory/src/components/DifferentComponent/ComponentTest.spec.tsx
+@org/another-module:lint:   2:18  error  'waitFor' is defined but never used  @typescript-eslint/no-unused-vars
+```
+
 ### run tests for failing test files
 
 ```sh
