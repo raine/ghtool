@@ -30,5 +30,9 @@ pub enum Commands {
     },
 
     /// Get lint issues for the current branch's pull request's checks
-    Lint {},
+    Lint {
+        /// Output only the file paths
+        #[clap(long, short)]
+        files: bool,
+    },
 }

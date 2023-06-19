@@ -17,6 +17,7 @@ pub async fn lint(
     repo: &Repository,
     branch: &str,
     repo_config: &RepoConfig,
+    show_files_only: bool,
 ) -> Result<()> {
     let pr = client
         .get_pr_for_branch_memoized(&repo.owner, &repo.name, branch)
@@ -31,17 +32,25 @@ pub async fn lint(
             repo_config.lint_job_pattern
         );
     } else {
-        process_failing_runs(client, repo, lint_check_runs, any_in_progress).await?;
+        process_failing_checks(
+            client,
+            repo,
+            lint_check_runs,
+            any_in_progress,
+            show_files_only,
+        )
+        .await?;
     }
 
     Ok(())
 }
 
-async fn process_failing_runs(
+async fn process_failing_checks(
     client: &GithubClient,
     repo: &Repository,
     lint_check_runs: Vec<github::SimpleCheckRun>,
     any_in_progress: bool,
+    show_files_only: bool,
 ) -> Result<()> {
     let failing_lint_check_runs: Vec<_> = lint_check_runs
         .into_iter()
@@ -57,16 +66,6 @@ async fn process_failing_runs(
         return Ok(());
     }
 
-    get_failing_lint_checks(client, repo, failing_lint_check_runs).await?;
-
-    Ok(())
-}
-
-async fn get_failing_lint_checks(
-    client: &GithubClient,
-    repo: &Repository,
-    failing_lint_check_runs: Vec<github::SimpleCheckRun>,
-) -> Result<()> {
     let mut log_futures: FuturesUnordered<_> =
         get_log_futures(client, repo, &failing_lint_check_runs);
 
@@ -83,15 +82,38 @@ async fn get_failing_lint_checks(
         return Ok(());
     }
 
+    if show_files_only {
+        print_failed_lint_files(&all_failing_lint_checks);
+    } else {
+        print_failed_lint_issues(&failing_lint_check_runs, &all_failing_lint_checks);
+    }
+
+    Ok(())
+}
+
+fn print_failed_lint_files(all_failing_lint_checks: &[Vec<EslintPath>]) {
+    for failing_lint_check in all_failing_lint_checks {
+        for eslint_path in failing_lint_check {
+            println!("{}", eslint_path.path);
+        }
+    }
+}
+
+fn print_failed_lint_issues(
+    failing_lint_check_runs: &[github::SimpleCheckRun],
+    all_failing_lint_checks: &[Vec<EslintPath>],
+) {
     for (check_run, failing_lint_check) in
         failing_lint_check_runs.iter().zip(all_failing_lint_checks)
     {
         print_check_run_header(check_run);
 
-        let mut iter = failing_lint_check.into_iter().peekable();
-        while let Some(file) = iter.next() {
-            for line in &file {
-                println!("{}", line);
+        let mut iter = failing_lint_check.iter().peekable();
+        while let Some(eslint_path) = iter.next() {
+            println!("{}", eslint_path.path);
+
+            for issue in &eslint_path.issues {
+                println!("{}", issue);
             }
 
             if iter.peek().is_some() {
@@ -99,8 +121,6 @@ async fn get_failing_lint_checks(
             }
         }
     }
-
-    Ok(())
 }
 
 fn filter_lint_check_runs(
