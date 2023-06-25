@@ -4,6 +4,9 @@ build:
 build-release:
   cargo build --release
 
+publish:
+  cargo publish
+
 run *FLAGS:
   cargo run {{FLAGS}}
 
