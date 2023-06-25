@@ -78,9 +78,8 @@ where
     regex::Regex::new(&s).map_err(serde::de::Error::custom)
 }
 
-pub fn read_repo_config(repo_path: &Path) -> Result<RepoConfig> {
-    let config_path = repo_path.join(".ghtool.toml");
-    let config_str = fs::read_to_string(&config_path).map_err(|e| {
+pub fn read_repo_config_from_path(config_path: &Path) -> Result<RepoConfig> {
+    let config_str = fs::read_to_string(config_path).map_err(|e| {
         eyre::eyre!(
             "Error reading config from path {}: {}",
             config_path.to_string_lossy(),
@@ -90,4 +89,9 @@ pub fn read_repo_config(repo_path: &Path) -> Result<RepoConfig> {
 
     let config: RepoConfig = toml::from_str(&config_str)?;
     Ok(config)
+}
+
+pub fn read_repo_config(repo_path: &Path) -> Result<RepoConfig> {
+    let config_path = repo_path.join(".ghtool.toml");
+    read_repo_config_from_path(&config_path)
 }
