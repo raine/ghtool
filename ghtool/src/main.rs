@@ -1,3 +1,4 @@
+use clap::Parser;
 use cli::Commands;
 use eyre::Result;
 use setup::setup;
@@ -24,7 +25,12 @@ async fn run() -> Result<()> {
         Some(Commands::Lint { files }) => {
             commands::lint(&github_client, &repo, &branch, &repo_config, *files).await
         }
-        None => Ok(()),
+        None => {
+            // Show help if no command is given. arg_required_else_help clap thing is supposed to
+            // do this but that doesn't work if some arguments, but no command, are given
+            cli::Cli::parse_from(["--help"]);
+            Ok(())
+        }
     }
 }
 
