@@ -4,8 +4,8 @@ use regex::Regex;
 const TIMESTAMP_PATTERN: &str = r"(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)";
 
 lazy_static! {
-    /// Regex to match a timestamp
-    static ref TIMESTAMP: Regex = Regex::new(TIMESTAMP_PATTERN).unwrap();
+    /// Regex to match a timestamp and single space after it
+    static ref TIMESTAMP: Regex = Regex::new(&format!(r"{TIMESTAMP_PATTERN}\s")).unwrap();
 
     /// Regex to match a failing jest test. The path needs to contain at least one slash.
     /// Example: 2021-05-04T18:24:29.000Z FAIL src/components/MyComponent/MyComponent.test.tsx
@@ -31,17 +31,14 @@ pub fn extract_failing_tests(logs: &str) -> Result<Vec<Vec<String>>, eyre::Error
     let mut current_fail_lines = Vec::new();
     let mut failing_tests_inner = Vec::new();
 
-    let get_line_without_ts = |line: &str, fail_start_col: usize| -> String {
-        line.chars().skip(fail_start_col).collect()
-    };
-
     for full_line in logs.lines() {
+        dbg!(full_line);
         let line_no_ansi = String::from_utf8(strip_ansi_escapes::strip(full_line.as_bytes())?)?;
+        let line = TIMESTAMP.replace(full_line, "");
 
         if let Some(caps) = JEST_FAIL_LINE.captures(&line_no_ansi) {
             fail_start_col = caps.name("fail").unwrap().start();
-            let line_no_timestamp = get_line_without_ts(&line_no_ansi, fail_start_col);
-            current_fail_lines.push(line_no_timestamp.to_string());
+            current_fail_lines.push(line.to_string());
             in_test_case = true;
         } else if in_test_case {
             if line_no_ansi.len() > fail_start_col
@@ -51,8 +48,7 @@ pub fn extract_failing_tests(logs: &str) -> Result<Vec<Vec<String>>, eyre::Error
                 current_fail_lines = Vec::new();
                 in_test_case = false;
             } else {
-                let line_no_timestamp = get_line_without_ts(&line_no_ansi, fail_start_col);
-                current_fail_lines.push(line_no_timestamp.to_string());
+                current_fail_lines.push(line.to_string());
             }
         }
     }
