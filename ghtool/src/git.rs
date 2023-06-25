@@ -1,7 +1,7 @@
 use eyre::Result;
 use std::path::PathBuf;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Repository {
     pub owner: String,
     pub name: String,
@@ -19,6 +19,8 @@ pub struct Git {
     pub directory: PathBuf,
 }
 
+const GITHUB_HOSTNAME: &str = "github.com";
+
 // Example url: git@github.com:raine/tgreddit.git
 fn parse_repository(url: &str) -> Result<Repository> {
     let mut parts = url.trim().split(':');
@@ -32,6 +34,20 @@ fn parse_repository(url: &str) -> Result<Repository> {
         .unwrap()
         .to_string();
     let hostname = host.unwrap().split('@').nth(1).unwrap().to_string();
+    Ok(Repository {
+        owner,
+        name,
+        hostname,
+    })
+}
+
+// Example input: raine/tgreddit
+pub fn parse_repository_from_github(s: &str) -> Result<Repository> {
+    let mut parts = s.trim().split('/');
+    let owner = parts.next().unwrap().to_string();
+    let name = parts.next().unwrap().to_string();
+    let hostname = GITHUB_HOSTNAME.to_string();
+
     Ok(Repository {
         owner,
         name,
