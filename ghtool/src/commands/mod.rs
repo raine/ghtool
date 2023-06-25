@@ -1,5 +1,5 @@
-mod failing_tests;
 mod lint;
+mod tests;
 
-pub use failing_tests::*;
 pub use lint::*;
+pub use tests::*;
