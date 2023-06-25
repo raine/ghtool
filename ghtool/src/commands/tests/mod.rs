@@ -12,9 +12,9 @@ use crate::repo_config::TestConfig;
 use crate::term::print_check_run_header;
 use crate::{git::Repository, github, repo_config::RepoConfig, term::green};
 
-mod log_parsing;
+mod jest;
 
-use log_parsing::*;
+use jest::*;
 
 pub async fn failing_tests(
     client: &GithubClient,
@@ -115,7 +115,7 @@ async fn get_failing_tests(
     while let Some(result) = log_futures.next().await {
         let bytes = result.map_err(|_| eyre::eyre!("Error when getting job logs"))?;
         let logs = String::from_utf8_lossy(&bytes);
-        let failing_tests_inner = extract_failing_tests(&logs)?;
+        let failing_tests_inner = JestLogParser::parse(&logs)?;
         failing_tests.push(failing_tests_inner);
     }
 
@@ -127,8 +127,8 @@ async fn get_failing_tests(
     for (check_run, failing_test) in failing_test_check_runs.iter().zip(failing_tests) {
         print_check_run_header(check_run);
 
-        for test_case in failing_test {
-            for line in test_case {
+        for jest_path in failing_test {
+            for line in jest_path.lines {
                 println!("{}", line);
             }
         }
@@ -150,7 +150,10 @@ async fn get_failing_test_files(
     while let Some(result) = log_futures.next().await {
         let bytes = result.map_err(|_| eyre::eyre!("Error when getting job logs"))?;
         let logs = String::from_utf8_lossy(&bytes);
-        failing_test_files.extend(extract_failing_test_files(&logs)?);
+        let parsed = JestLogParser::parse(&logs)?;
+        for jest_path in parsed {
+            failing_test_files.insert(jest_path.path);
+        }
     }
 
     if failing_test_files.is_empty() {
