@@ -1,6 +1,7 @@
 # ghtool
 
-![rust](https://github.com/raine/ghtool/actions/workflows/rust.yml/badge.svg)
+[![Crates.io][crates-badge]][crates-url]
+![rust][build-badge]
 
 A command-line tool for interacting with Github API with some specialized
 features oriented around Checks.
@@ -130,3 +131,7 @@ yarn run v1.22.19
 $ NODE_ENV=test node ./node_modules/.bin/jest src/moduleA.test.ts src/moduleB.test.ts
 ...
 ```
+
+[crates-badge]: https://img.shields.io/crates/v/ghtool.svg
+[crates-url]: https://crates.io/crates/ghtool
+[build-badge]: https://github.com/raine/ghtool/actions/workflows/rust.yml/badge.svg
