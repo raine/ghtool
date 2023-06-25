@@ -10,8 +10,7 @@ pub struct Repository {
 
 impl std::fmt::Display for Repository {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let key = format!("{}/{}/{}", self.hostname, self.owner, self.name);
-        write!(f, "{}", key)
+        write!(f, "{}/{}/{}", self.hostname, self.owner, self.name)
     }
 }
 
