@@ -16,7 +16,7 @@ mod jest;
 
 use jest::*;
 
-pub async fn failing_tests(
+pub async fn tests(
     client: &GithubClient,
     repo: &Repository,
     branch: &str,

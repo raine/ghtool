@@ -40,11 +40,15 @@ to determine which pull request to query.
 
 #### `ght tests`
 
-Get the failing tests for the current branch's pull request's checks.
+Get the failing tests from the current branch's pull request's checks.
 
 #### `ght lint`
 
-Get linting issues for the current branch's pull request's checks.
+Get linting issues from the current branch's pull request's checks.
+
+#### `ght typecheck`
+
+Get typecheck errors from the current branch's pull request's checks.
 
 ## configuration
 
@@ -54,7 +58,6 @@ A TOML configuration at `.ghtool.toml` at repository root is required.
 
 ```toml
 [test]
-
 # A regular expression to match test job names
 job_pattern = "(Unit|Integration|End-to-end) tests sharded"
 
@@ -63,13 +66,20 @@ job_pattern = "(Unit|Integration|End-to-end) tests sharded"
 runner = "jest"
 
 [lint]
-
 # A regular expression to match test job names
 job_pattern = "Lint"
 
 # Lint tool used in the checks. Determines how logs are parsed.
 # One of: eslint
 tool = "eslint"
+
+[typecheck]
+# A regular expression to match typechecking job names
+job_pattern = "Typecheck"
+
+# Typechecker used in matching jobs. Determines how logs are parsed.
+# One of: tsc
+tool = "tsc"
 ```
 
 ## example usage

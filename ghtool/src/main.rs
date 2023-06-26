@@ -20,10 +20,13 @@ async fn run() -> Result<()> {
 
     match &cli.command {
         Some(Commands::Tests { files }) => {
-            commands::failing_tests(&github_client, &repo, &branch, &repo_config, *files).await
+            commands::tests(&github_client, &repo, &branch, &repo_config, *files).await
         }
         Some(Commands::Lint { files }) => {
             commands::lint(&github_client, &repo, &branch, &repo_config, *files).await
+        }
+        Some(Commands::Typecheck { files }) => {
+            commands::typecheck(&github_client, &repo, &branch, &repo_config, *files).await
         }
         None => {
             // Show help if no command is given. arg_required_else_help clap thing is supposed to

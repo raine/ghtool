@@ -1,4 +1,4 @@
-use eyre::Result;
+use eyre::{Result, WrapErr};
 use serde::{Deserialize, Deserializer};
 use std::{fs, path::Path};
 
@@ -6,26 +6,28 @@ use std::{fs, path::Path};
 pub struct RepoConfig {
     pub test: Option<TestConfig>,
     pub lint: Option<LintConfig>,
+    pub typecheck: Option<TypecheckConfig>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct TestConfig {
-    /// Regex pattern that is used to match against test job names
     #[serde(deserialize_with = "deserialize_regex")]
     pub job_pattern: regex::Regex,
-
-    #[serde(deserialize_with = "TestRunner::deserialize")]
     pub runner: TestRunner,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct LintConfig {
     #[serde(deserialize_with = "deserialize_regex")]
-    /// Regex pattern that is used to match against lint job names
     pub job_pattern: regex::Regex,
-
-    #[serde(deserialize_with = "LintTool::deserialize")]
     pub tool: LintTool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TypecheckConfig {
+    #[serde(deserialize_with = "deserialize_regex")]
+    pub job_pattern: regex::Regex,
+    pub tool: TypecheckTool,
 }
 
 #[derive(Debug)]
@@ -33,25 +35,43 @@ pub enum TestRunner {
     Jest,
 }
 
+#[derive(Debug)]
+pub enum LintTool {
+    Eslint,
+}
+
+#[derive(Debug)]
+pub enum TypecheckTool {
+    Tsc,
+}
+
+fn deserialize_tool<'de, D, T>(
+    deserializer: D,
+    valid_tool: &'static str,
+    tool: T,
+    tool_name: &str,
+) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    if s.eq_ignore_ascii_case(valid_tool) {
+        Ok(tool)
+    } else {
+        Err(serde::de::Error::custom(format!(
+            "invalid {}: {}",
+            tool_name, s
+        )))
+    }
+}
+
 impl<'de> Deserialize<'de> for TestRunner {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let s = String::deserialize(deserializer)?;
-        match s.as_str() {
-            "jest" => Ok(TestRunner::Jest),
-            _ => Err(serde::de::Error::custom(format!(
-                "invalid test runner: {}",
-                s
-            ))),
-        }
+        deserialize_tool(deserializer, "jest", TestRunner::Jest, "test runner")
     }
-}
-
-#[derive(Debug)]
-pub enum LintTool {
-    Eslint,
 }
 
 impl<'de> Deserialize<'de> for LintTool {
@@ -59,14 +79,16 @@ impl<'de> Deserialize<'de> for LintTool {
     where
         D: Deserializer<'de>,
     {
-        let s = String::deserialize(deserializer)?;
-        match s.as_str() {
-            "eslint" => Ok(LintTool::Eslint),
-            _ => Err(serde::de::Error::custom(format!(
-                "invalid lint tool: {}",
-                s
-            ))),
-        }
+        deserialize_tool(deserializer, "eslint", LintTool::Eslint, "lint tool")
+    }
+}
+
+impl<'de> Deserialize<'de> for TypecheckTool {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserialize_tool(deserializer, "tsc", TypecheckTool::Tsc, "typecheck tool")
     }
 }
 
@@ -79,14 +101,12 @@ where
 }
 
 pub fn read_repo_config_from_path(config_path: &Path) -> Result<RepoConfig> {
-    let config_str = fs::read_to_string(config_path).map_err(|e| {
-        eyre::eyre!(
-            "Error reading config from path {}: {}",
-            config_path.to_string_lossy(),
-            e
+    let config_str = fs::read_to_string(config_path).wrap_err_with(|| {
+        format!(
+            "Error reading config from path {}",
+            config_path.to_string_lossy()
         )
     })?;
-
     let config: RepoConfig = toml::from_str(&config_str)?;
     Ok(config)
 }

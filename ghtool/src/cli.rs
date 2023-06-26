@@ -35,4 +35,11 @@ pub enum Commands {
         #[clap(long, short)]
         files: bool,
     },
+
+    /// Get typechecking issues for the current branch's pull request's checks
+    Typecheck {
+        /// Output only the file paths
+        #[clap(long, short)]
+        files: bool,
+    },
 }
