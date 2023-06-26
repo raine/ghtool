@@ -3,14 +3,17 @@
 [![Crates.io][crates-badge]][crates-url]
 ![rust][build-badge]
 
-A command-line tool for interacting with Github API with some specialized
-features oriented around Checks.
+`ghtool` is a powerful command-line tool created to streamline interactions
+with Github, particularly revolving around Checks. Its primary use is in large
+projects where tests are run across multiple jobs. The tool makes it convenient
+to identify failing tests and linting issues, bringing them to your attention
+in an organized manner.
 
-## features
+## key features
 
-- List failing tests across all test checks. Useful in big projects where tests
-  are split across multiple jobs.
-- List linting issues across all checks.
+- List failing tests across all test checks
+- List linting issues across all checks
+- List typecheck errors across all checks
 
 ## installation
 
