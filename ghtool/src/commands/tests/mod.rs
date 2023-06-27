@@ -75,11 +75,7 @@ async fn process_failing_runs(
         return Ok(());
     }
 
-    if show_files_only {
-        get_failing_test_files(client, repo, failing_test_check_runs).await?;
-    } else {
-        get_failing_tests(client, repo, failing_test_check_runs).await?;
-    }
+    get_failing_tests(client, repo, failing_test_check_runs, show_files_only).await?;
 
     Ok(())
 }
@@ -107,6 +103,7 @@ async fn get_failing_tests(
     client: &GithubClient,
     repo: &Repository,
     failing_test_check_runs: Vec<github::SimpleCheckRun>,
+    show_files_only: bool,
 ) -> Result<()> {
     let mut log_futures: FuturesUnordered<_> =
         get_log_futures(client, repo, &failing_test_check_runs);
@@ -124,46 +121,39 @@ async fn get_failing_tests(
         return Ok(());
     }
 
-    for (check_run, failing_test) in failing_test_check_runs.iter().zip(failing_tests) {
-        print_check_run_header(check_run);
-
-        for jest_path in failing_test {
-            for line in jest_path.lines {
-                println!("{}", line);
-            }
-        }
+    if show_files_only {
+        print_failed_test_files(failing_tests);
+    } else {
+        print_failed_tests(&failing_test_check_runs, failing_tests);
     }
 
     Ok(())
 }
 
-async fn get_failing_test_files(
-    client: &GithubClient,
-    repo: &Repository,
-    failing_test_check_runs: Vec<github::SimpleCheckRun>,
-) -> Result<()> {
-    let mut log_futures: FuturesUnordered<_> =
-        get_log_futures(client, repo, &failing_test_check_runs);
+fn print_failed_test_files(failing_tests: Vec<Vec<JestPath>>) {
+    let files: HashSet<String> = failing_tests
+        .into_iter()
+        .flat_map(|jest_paths| jest_paths.into_iter().map(|jest_path| jest_path.path))
+        .collect();
 
-    let mut failing_test_files: HashSet<String> = HashSet::new();
-
-    while let Some(result) = log_futures.next().await {
-        let bytes = result.map_err(|_| eyre::eyre!("Error when getting job logs"))?;
-        let logs = String::from_utf8_lossy(&bytes);
-        let parsed = JestLogParser::parse(&logs)?;
-        for jest_path in parsed {
-            failing_test_files.insert(jest_path.path);
-        }
+    for file in files {
+        println!("{}", file);
     }
+}
 
-    if failing_test_files.is_empty() {
-        eprintln!("No failing test files found in log output");
-        return Ok(());
-    }
+fn print_failed_tests(
+    failing_test_check_runs: &[github::SimpleCheckRun],
+    failing_tests: Vec<Vec<JestPath>>,
+) {
+    failing_test_check_runs
+        .iter()
+        .zip(failing_tests)
+        .for_each(|(check_run, failing_test)| {
+            print_check_run_header(check_run);
 
-    for test_file in failing_test_files {
-        println!("{}", test_file);
-    }
-
-    Ok(())
+            failing_test
+                .into_iter()
+                .flat_map(|jest_path| jest_path.lines)
+                .for_each(|line| println!("{}", line));
+        });
 }
