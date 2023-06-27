@@ -9,13 +9,13 @@ projects where tests are run across multiple jobs. The tool makes it convenient
 to identify failing tests and linting issues, bringing them to your attention
 in an organized manner.
 
-## key features
+## Key features
 
 - List failing tests across all test checks
 - List linting issues across all checks
 - List typecheck errors across all checks
 
-## installation
+## Installation
 
 Rust toolchain is required. Install it from [rustup.rs](https://rustup.rs/).
 
@@ -23,7 +23,7 @@ Rust toolchain is required. Install it from [rustup.rs](https://rustup.rs/).
 cargo install ghtool
 ```
 
-## setup
+## Setup
 
 The tool currently uses [`gh`](https://github.com/cli/cli)'s oauth token to
 authenticate against GitHub API.
@@ -31,7 +31,7 @@ authenticate against GitHub API.
 [Install](https://github.com/cli/cli#installation) `gh` and run `gh auth login`
 and `ghtool` should be able to read the token from `~/.config/gh/hosts.yml`.
 
-## usage
+## Usage
 
 The tool is installed as executable `ght` for ease of use.
 
@@ -39,7 +39,7 @@ The tool is intended to be run in a repository, as it uses the current working
 directory to determine the repository to operate on. The current branch is used
 to determine which pull request to query.
 
-### commands
+### Commands
 
 #### `ght tests`
 
@@ -53,41 +53,51 @@ Get linting issues from the current branch's pull request's checks.
 
 Get typecheck errors from the current branch's pull request's checks.
 
-## configuration
+## Configuration
 
-A TOML configuration at `.ghtool.toml` at repository root is required.
+The `.ghtool.toml` configuration file in your repository root is required. The
+file consists of three optional sections: `test`, `lint`, and `typecheck`. Each
+section is used to configure the corresponding functionality of `ghtool`.
 
-#### example
+### `test`
+
+- `job_pattern`: Regular expression to match test job names.
+- `runner`: Test runner used in tests. Determines how logs are parsed. Only
+  "jest" is currently supported.
+
+### `lint`
+
+- `job_pattern`: Regular expression to match job names for linting.
+- `tool`: Lint tool used in the checks. Determines how logs are parsed. Only
+  "eslint" is currently supported.
+
+### `typecheck`
+
+- `job_pattern`: Regular expression to match typechecking job names.
+- `tool`: Typechecker used in matching jobs. Determines how logs are parsed.
+  Only "tsc" is currently supported.
+
+### Example
+
+Here's an example `.ghtool.toml` file:
 
 ```toml
 [test]
-# A regular expression to match test job names
 job_pattern = "(Unit|Integration|End-to-end) tests sharded"
-
-# Test runner used in tests. Determines how logs are parsed.
-# One of: jest
 runner = "jest"
 
 [lint]
-# A regular expression to match test job names
 job_pattern = "Lint"
-
-# Lint tool used in the checks. Determines how logs are parsed.
-# One of: eslint
 tool = "eslint"
 
 [typecheck]
-# A regular expression to match typechecking job names
 job_pattern = "Typecheck"
-
-# Typechecker used in matching jobs. Determines how logs are parsed.
-# One of: tsc
 tool = "tsc"
 ```
 
-## example usage
+## Example usage
 
-### check failing tests
+### Check failing tests
 
 ```
 % ght tests
@@ -116,7 +126,7 @@ FAIL src/components/AnotherComponent/AnotherComponent.test.tsx
 ...
 ```
 
-### check lint issues
+### Check lint issues
 
 ```
 % ght lint
@@ -136,7 +146,7 @@ FAIL src/components/AnotherComponent/AnotherComponent.test.tsx
 @org/another-module:lint:   2:18  error  'waitFor' is defined but never used  @typescript-eslint/no-unused-vars
 ```
 
-### run tests for failing test files
+### Run tests for failing test files
 
 ```sh
 % ght tests --files | xargs yarn test
