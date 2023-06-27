@@ -77,11 +77,7 @@ async fn process_failing_checks(
         return Ok(());
     }
 
-    if show_files_only {
-        get_failing_typechecks_files(client, repo, failing_typecheck_check_runs).await?;
-    } else {
-        get_failing_typechecks(client, repo, failing_typecheck_check_runs).await?;
-    }
+    get_failing_typechecks(client, repo, failing_typecheck_check_runs, show_files_only).await?;
 
     Ok(())
 }
@@ -109,6 +105,7 @@ async fn get_failing_typechecks(
     client: &GithubClient,
     repo: &Repository,
     failing_typecheck_check_runs: Vec<github::SimpleCheckRun>,
+    show_files_only: bool,
 ) -> Result<()> {
     let mut log_futures: FuturesUnordered<_> =
         get_log_futures(client, repo, &failing_typecheck_check_runs);
@@ -126,48 +123,39 @@ async fn get_failing_typechecks(
         return Ok(());
     }
 
-    for (check_run, failing_typecheck) in
-        failing_typecheck_check_runs.iter().zip(failing_typechecks)
-    {
-        print_check_run_header(check_run);
-
-        for tsc_error in failing_typecheck {
-            for line in tsc_error.lines {
-                println!("{}", line);
-            }
-        }
+    if show_files_only {
+        print_failed_typecheck_files(failing_typechecks)
+    } else {
+        print_failed_typechecks(&failing_typecheck_check_runs, failing_typechecks);
     }
 
     Ok(())
 }
 
-async fn get_failing_typechecks_files(
-    client: &GithubClient,
-    repo: &Repository,
-    failing_typecheck_check_runs: Vec<github::SimpleCheckRun>,
-) -> Result<()> {
-    let mut log_futures: FuturesUnordered<_> =
-        get_log_futures(client, repo, &failing_typecheck_check_runs);
+fn print_failed_typechecks(
+    failing_typecheck_check_runs: &[github::SimpleCheckRun],
+    failing_typechecks: Vec<Vec<tsc::TscError>>,
+) {
+    failing_typecheck_check_runs
+        .iter()
+        .zip(failing_typechecks)
+        .for_each(|(check_run, failing_typecheck)| {
+            print_check_run_header(check_run);
 
-    let mut failing_typecheck_files: HashSet<String> = HashSet::new();
+            failing_typecheck
+                .into_iter()
+                .flat_map(|tsc_error| tsc_error.lines)
+                .for_each(|line| println!("{}", line));
+        });
+}
 
-    while let Some(result) = log_futures.next().await {
-        let bytes = result.map_err(|_| eyre::eyre!("Error when getting job logs"))?;
-        let logs = String::from_utf8_lossy(&bytes);
-        let parsed = TscLogParser::parse(&logs)?;
-        for tsc_error in parsed {
-            failing_typecheck_files.insert(tsc_error.path);
-        }
-    }
+fn print_failed_typecheck_files(failing_typechecks: Vec<Vec<tsc::TscError>>) {
+    let files: HashSet<String> = failing_typechecks
+        .into_iter()
+        .flat_map(|tsc_errors| tsc_errors.into_iter().map(|tsc_error| tsc_error.path))
+        .collect();
 
-    if failing_typecheck_files.is_empty() {
-        eprintln!("No type errors found in log output");
-        return Ok(());
-    }
-
-    for file in failing_typecheck_files {
+    for file in files {
         println!("{}", file);
     }
-
-    Ok(())
 }
