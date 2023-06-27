@@ -4,6 +4,7 @@ use regex::Regex;
 const TIMESTAMP_PATTERN: &str = r"(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)";
 
 lazy_static! {
+    /// Regex to match a timestamp and single space after it
     static ref TIMESTAMP: Regex = Regex::new(&format!(r"{TIMESTAMP_PATTERN}\s?")).unwrap();
     static ref JEST_FAIL_LINE: Regex = Regex::new(&format!(
         r"{TIMESTAMP_PATTERN}\s+(?P<fail>FAIL)\s+(?P<path>[a-zA-Z0-9._-]*/[a-zA-Z0-9./_-]*)",
