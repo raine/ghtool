@@ -62,7 +62,7 @@ section is used to configure the corresponding functionality of `ghtool`.
 ### `test`
 
 - `job_pattern`: Regular expression to match test job names.
-- `runner`: Test runner used in tests. Determines how logs are parsed. Only
+- `tool`: Test runner used in tests. Determines how logs are parsed. Only
   "jest" is currently supported.
 
 ### `lint`
@@ -84,7 +84,7 @@ Here's an example `.ghtool.toml` file:
 ```toml
 [test]
 job_pattern = "(Unit|Integration|End-to-end) tests sharded"
-runner = "jest"
+tool = "jest"
 
 [lint]
 job_pattern = "Lint"

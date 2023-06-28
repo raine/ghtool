@@ -13,7 +13,7 @@ pub struct RepoConfig {
 pub struct TestConfig {
     #[serde(deserialize_with = "deserialize_regex")]
     pub job_pattern: regex::Regex,
-    pub runner: TestRunner,
+    pub tool: TestRunner,
 }
 
 #[derive(Debug, Deserialize)]
