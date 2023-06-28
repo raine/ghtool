@@ -8,7 +8,7 @@ pub fn extract_check_runs(pull_request: PullRequest) -> Result<Vec<CheckRun>> {
         .unwrap()
         .commit
         .status_check_rollup
-        .unwrap()
+        .ok_or_else(|| eyre::eyre!("No status check rollup found for pull request"))?
         .contexts
         .nodes
         .unwrap()
