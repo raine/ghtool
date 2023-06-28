@@ -39,6 +39,14 @@ impl LintCommand {
 impl Command for LintCommand {
     type ConfigType = LintConfig;
 
+    fn name(&self) -> &'static str {
+        "lint"
+    }
+
+    fn check_error_plural(&self) -> &'static str {
+        "lint issues"
+    }
+
     fn config(&self) -> &Self::ConfigType {
         &self.config
     }

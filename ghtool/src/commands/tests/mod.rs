@@ -39,6 +39,14 @@ impl TestCommand {
 impl Command for TestCommand {
     type ConfigType = TestConfig;
 
+    fn name(&self) -> &'static str {
+        "test"
+    }
+
+    fn check_error_plural(&self) -> &'static str {
+        "test errors"
+    }
+
     fn config(&self) -> &Self::ConfigType {
         &self.config
     }

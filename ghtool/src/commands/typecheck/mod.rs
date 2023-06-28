@@ -39,6 +39,14 @@ impl TypecheckCommand {
 impl Command for TypecheckCommand {
     type ConfigType = TypecheckConfig;
 
+    fn name(&self) -> &'static str {
+        "typecheck"
+    }
+
+    fn check_error_plural(&self) -> &'static str {
+        "type errors"
+    }
+
     fn config(&self) -> &Self::ConfigType {
         &self.config
     }

@@ -26,8 +26,10 @@ pub struct CheckError {
 pub trait Command {
     type ConfigType: ConfigPattern;
 
+    fn name(&self) -> &'static str;
     fn config(&self) -> &Self::ConfigType;
     fn parse_log(&self, logs: &str) -> Result<Vec<CheckError>>;
+    fn check_error_plural(&self) -> &'static str;
 }
 
 fn filter_check_runs<T: Command>(
@@ -73,8 +75,8 @@ pub async fn handle_command<T: Command>(
 
     if no_matching_runs {
         eprintln!(
-            // TODO: This error message needs to be custom per command
-            "No jobs found matching the pattern /{}/",
+            "No {} jobs found matching the pattern /{}/",
+            command.name(),
             command.config().job_pattern()
         );
         return Ok(());
@@ -82,8 +84,7 @@ pub async fn handle_command<T: Command>(
 
     if failed_check_runs.is_empty() {
         if any_in_progress {
-            // TODO: This error message needs to be custom per command
-            eprintln!("⏳  Some checks are in progress");
+            eprintln!("⏳  Some {} checks are in progress", command.name());
         } else {
             eprintln!("{}  All checks are green", green("✓"));
         }
@@ -100,8 +101,7 @@ pub async fn handle_command<T: Command>(
     }
 
     if all_checks_errors.iter().all(|s| s.is_empty()) {
-        // TODO: This error message needs to be custom per command
-        eprintln!("No errors found in log output");
+        eprintln!("No {} found in log output", command.check_error_plural());
         return Ok(());
     }
 
