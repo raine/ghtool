@@ -66,8 +66,16 @@ impl JestLogParser {
                 if line_no_ansi.len() > self.current_fail_start_col
                     && line_no_ansi.chars().nth(self.current_fail_start_col) != Some(' ')
                 {
-                    let current_fail = std::mem::take(&mut self.current_fail);
-                    self.all_fails.push(current_fail.unwrap());
+                    let mut current_fail = std::mem::take(&mut self.current_fail).unwrap();
+
+                    // Remove trailing empty lines
+                    if let Some(last_non_empty_line) =
+                        current_fail.lines.iter().rposition(|line| !line.is_empty())
+                    {
+                        current_fail.lines.truncate(last_non_empty_line + 1);
+                    }
+
+                    self.all_fails.push(current_fail);
                     self.current_fail_lines = Vec::new();
                     self.state = State::LookingForFail;
                 } else {
@@ -144,6 +152,72 @@ mod tests {
                     ]
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn test_extract_failing_tests_2() {
+        let logs = r#"
+2023-06-28T21:11:38.9421220Z > ghtool-test-repo@1.0.0 test
+2023-06-28T21:11:38.9428514Z > jest ./src --color --ci --shard=1/2
+2023-06-28T21:11:38.9429089Z 
+2023-06-28T21:11:43.1619050Z  FAIL  src/test2.test.ts
+2023-06-28T21:11:43.1623893Z   test2
+2023-06-28T21:11:43.1629746Z     ✓ succeeds (3 ms)
+2023-06-28T21:11:43.1630396Z     ✕ fails (5 ms)
+2023-06-28T21:11:43.1630949Z 
+2023-06-28T21:11:43.1631448Z   ● test2 › fails
+2023-06-28T21:11:43.1631750Z 
+2023-06-28T21:11:43.1632455Z     expect(received).toBe(expected) // Object.is equality
+2023-06-28T21:11:43.1633081Z 
+2023-06-28T21:11:43.1633381Z     Expected: false
+2023-06-28T21:11:43.1633800Z     Received: true
+2023-06-28T21:11:43.1634250Z 
+2023-06-28T21:11:43.1634753Z        5 |
+2023-06-28T21:11:43.1635444Z        6 |   it("fails", () => {
+2023-06-28T21:11:43.1636318Z     >  7 |     expect(true).toBe(false);
+2023-06-28T21:11:43.1637060Z          |                  ^
+2023-06-28T21:11:43.1642719Z        8 |   });
+2023-06-28T21:11:43.1647216Z        9 | });
+2023-06-28T21:11:43.1648590Z       10 |
+2023-06-28T21:11:43.1649650Z 
+2023-06-28T21:11:43.1651496Z       at Object.<anonymous> (src/test2.test.ts:7:18)
+2023-06-28T21:11:43.1652032Z 
+2023-06-28T21:11:43.1664383Z Test Suites: 1 failed, 1 total
+2023-06-28T21:11:43.1665139Z Tests:       1 failed, 1 passed, 2 total
+2023-06-28T21:11:43.1665683Z Snapshots:   0 total
+2023-06-28T21:11:43.1666152Z Time:        3.464 s
+2023-06-28T21:11:43.1666769Z Ran all test suites matching /.\/src/i."#;
+
+        let failing_tests = JestLogParser::parse(logs).unwrap();
+        assert_eq!(
+            failing_tests,
+            vec![CheckError {
+                path: "src/test2.test.ts".to_string(),
+                lines: vec![
+                    " FAIL  src/test2.test.ts".to_string(),
+                    "  test2".to_string(),
+                    "    ✓ succeeds (3 ms)".to_string(),
+                    "    ✕ fails (5 ms)".to_string(),
+                    "".to_string(),
+                    "  ● test2 › fails".to_string(),
+                    "".to_string(),
+                    "    expect(received).toBe(expected) // Object.is equality".to_string(),
+                    "".to_string(),
+                    "    Expected: false".to_string(),
+                    "    Received: true".to_string(),
+                    "".to_string(),
+                    "       5 |".to_string(),
+                    "       6 |   it(\"fails\", () => {".to_string(),
+                    "    >  7 |     expect(true).toBe(false);".to_string(),
+                    "         |                  ^".to_string(),
+                    "       8 |   });".to_string(),
+                    "       9 | });".to_string(),
+                    "      10 |".to_string(),
+                    "".to_string(),
+                    "      at Object.<anonymous> (src/test2.test.ts:7:18)".to_string(),
+                ],
+            },]
         );
     }
 
