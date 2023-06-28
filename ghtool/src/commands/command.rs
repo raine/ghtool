@@ -84,7 +84,7 @@ pub async fn handle_command<T: Command>(
 
     if failed_check_runs.is_empty() {
         if any_in_progress {
-            eprintln!("⏳  Some {} checks are in progress", command.name());
+            eprintln!("Some {} checks are in progress", command.name());
         } else {
             eprintln!("{}  All checks are green", green("✓"));
         }
