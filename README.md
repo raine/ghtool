@@ -5,9 +5,7 @@
 
 `ghtool` is a powerful command-line tool created to streamline interactions
 with Github, particularly revolving around Checks. Its primary use is in large
-projects where tests are run across multiple jobs. The tool makes it convenient
-to identify failing tests and linting issues, bringing them to your attention
-in an organized manner.
+projects where tests are run across multiple jobs.
 
 ## Key features
 
@@ -39,19 +37,21 @@ The tool is intended to be run in a repository, as it uses the current working
 directory to determine the repository to operate on. The current branch is used
 to determine which pull request to query.
 
-### Commands
+```
+Usage: ght [OPTIONS] [COMMAND]
 
-#### `ght tests`
+Commands:
+  tests      Get the failing tests for the current branch's pull request's checks
+  lint       Get lint issues for the current branch's pull request's checks
+  typecheck  Get typechecking issues for the current branch's pull request's checks
+  help       Print this message or the help of the given subcommand(s)
 
-Get the failing tests from the current branch's pull request's checks.
-
-#### `ght lint`
-
-Get linting issues from the current branch's pull request's checks.
-
-#### `ght typecheck`
-
-Get typecheck errors from the current branch's pull request's checks.
+Options:
+  -v, --verbose          Print verbose output
+  -b, --branch <BRANCH>  Target branch; defaults to current branch
+  -h, --help             Print help
+  -V, --version          Print version
+```
 
 ## Configuration
 
