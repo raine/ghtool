@@ -1,3 +1,5 @@
+use crate::commands::command::CheckError;
+use eyre::Result;
 use lazy_static::lazy_static;
 use regex::Regex;
 
@@ -27,8 +29,8 @@ enum State {
 #[derive(Debug)]
 pub struct JestLogParser {
     state: State,
-    current_fail: Option<JestPath>,
-    all_fails: Vec<JestPath>,
+    current_fail: Option<CheckError>,
+    all_fails: Vec<CheckError>,
     current_fail_start_col: usize,
     current_fail_lines: Vec<String>,
 }
@@ -53,7 +55,7 @@ impl JestLogParser {
                 if let Some(caps) = JEST_FAIL_LINE.captures(&line_no_ansi) {
                     self.current_fail_start_col = caps.name("fail").unwrap().start();
                     let path = caps.name("path").unwrap().as_str().to_string();
-                    self.current_fail = Some(JestPath {
+                    self.current_fail = Some(CheckError {
                         lines: vec![line.to_string()],
                         path,
                     });
@@ -80,7 +82,7 @@ impl JestLogParser {
         Ok(())
     }
 
-    pub fn parse(log: &str) -> Result<Vec<JestPath>, eyre::Error> {
+    pub fn parse(log: &str) -> Result<Vec<CheckError>> {
         let mut parser = JestLogParser::new();
 
         for line in log.lines() {
@@ -90,7 +92,7 @@ impl JestLogParser {
         Ok(parser.get_output())
     }
 
-    pub fn get_output(self) -> Vec<JestPath> {
+    pub fn get_output(self) -> Vec<CheckError> {
         self.all_fails
     }
 }
@@ -121,7 +123,7 @@ mod tests {
         assert_eq!(
             failing_tests,
             vec![
-                JestPath {
+                CheckError {
                     path: "src/components/MyComponent/MyComponent.test.tsx".to_string(),
                     lines: vec![
                         "FAIL src/components/MyComponent/MyComponent.test.tsx".to_string(),
@@ -131,7 +133,7 @@ mod tests {
                         "      1 | import React from 'react';".to_string(),
                     ]
                 },
-                JestPath {
+                CheckError {
                     path: "src/components/MyComponent/MyComponent2.test.tsx".to_string(),
                     lines: vec![
                         "FAIL src/components/MyComponent/MyComponent2.test.tsx".to_string(),

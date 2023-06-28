@@ -1,6 +1,8 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 
+use crate::commands::CheckError;
+
 #[derive(PartialEq, Debug)]
 enum State {
     LookingForFile,
@@ -26,23 +28,11 @@ lazy_static! {
     .unwrap();
 }
 
-/// This struct represent a block like this in log output:
-///
-/// 2023-06-14T20:22:39.1727281Z /root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts
-/// 2023-06-14T20:22:39.1789066Z ##[warning]  1:42  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types
-///
-/// Timestamp will not be included.
-#[derive(Debug, Clone, PartialEq)]
-pub struct EslintPath {
-    pub path: String,
-    pub lines: Vec<String>,
-}
-
 #[derive(Debug)]
 pub struct EslintLogParser {
     state: State,
-    current_path: Option<EslintPath>,
-    all_paths: Vec<EslintPath>,
+    current_path: Option<CheckError>,
+    all_paths: Vec<CheckError>,
     current_path_start_col: usize,
     seen_eslint_issue_for_current_path: bool,
     current_path_lines: usize,
@@ -79,7 +69,7 @@ impl EslintLogParser {
                     self.current_path_start_col = caps.name("path").unwrap().start();
                     let path = self.get_line_from_path_col(&line_no_ansi);
                     let line = TIMESTAMP.replace(raw_line, "");
-                    self.current_path = Some(EslintPath {
+                    self.current_path = Some(CheckError {
                         lines: vec![line.to_string()],
                         path,
                     });
@@ -126,7 +116,7 @@ impl EslintLogParser {
         }
     }
 
-    pub fn parse(log: &str) -> Vec<EslintPath> {
+    pub fn parse(log: &str) -> Vec<CheckError> {
         let mut parser = EslintLogParser::new();
 
         for line in log.lines() {
@@ -136,13 +126,15 @@ impl EslintLogParser {
         parser.get_output()
     }
 
-    pub fn get_output(self) -> Vec<EslintPath> {
+    pub fn get_output(self) -> Vec<CheckError> {
         self.all_paths
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::commands::CheckError;
+
     use super::*;
     use pretty_assertions::assert_eq;
 
@@ -175,7 +167,7 @@ mod tests {
         assert_eq!(
             output,
             vec![
-                EslintPath {
+                CheckError {
                     path: "/root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts".to_string(),
                     lines: vec![
                         "/root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts".to_string(),
@@ -183,7 +175,7 @@ mod tests {
                             .to_string(),
                     ],
                 },
-                EslintPath {
+                CheckError {
                     path: "/root_path/project_directory/module_2/setupModule2Test.ts".to_string(),
                     lines: vec![
                         "/root_path/project_directory/module_2/setupModule2Test.ts".to_string(),
@@ -195,7 +187,7 @@ mod tests {
                             .to_string(),
                     ],
                 },
-                EslintPath {
+                CheckError {
                     path: "/root_path/project_directory/module_3/getSpecificUploadImageResponse.ts".to_string(),
                     lines: vec![
                         "/root_path/project_directory/module_3/getSpecificUploadImageResponse.ts".to_string(),
@@ -203,7 +195,7 @@ mod tests {
                             .to_string(),
                     ],
                 },
-                EslintPath {
+                CheckError {
                     path: "/root_path/project_directory/module_4/submodule_2/setupInitialDB.ts".to_string(),
                     lines: vec![
                         "/root_path/project_directory/module_4/submodule_2/setupInitialDB.ts".to_string(),
@@ -232,7 +224,7 @@ mod tests {
         assert_eq!(
                 output,
                 vec![
-                    EslintPath {
+                    CheckError {
                         path: "/root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts".to_string(),
                         lines: vec![
                             "/root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts".to_string(),
@@ -266,7 +258,7 @@ mod tests {
 
         let output = EslintLogParser::parse(log);
         assert_eq!(output, vec![
-            EslintPath {
+            CheckError {
                 path: "/path/to/working/directory/src/components/ComponentWrapper.spec.tsx".to_string(),
                 lines: vec![
                     "\u{1b}[34m@project/package:lint: \u{1b}[0m\u{1b}[0m\u{1b}[4m/path/to/working/directory/src/components/ComponentWrapper.spec.tsx\u{1b}[24m\u{1b}[0m".to_string(),
@@ -275,7 +267,7 @@ mod tests {
                     "\u{1b}[34m@project/package:lint: \u{1b}[0m\u{1b}[0m  \u{1b}[2m59:7\u{1b}[22m  \u{1b}[33mwarning\u{1b}[39m  Disabled test        \u{1b}[2mjest/no-disabled-tests\u{1b}[22m\u{1b}[0m".to_string()
                 ],
             },
-            EslintPath {
+            CheckError {
                 path: "/path/to/working/directory/src/hooks/useCustomHook.spec.ts".to_string(),
                 lines: vec![
                     "\u{1b}[34m@project/package:lint: \u{1b}[0m\u{1b}[0m\u{1b}[4m/path/to/working/directory/src/hooks/useCustomHook.spec.ts\u{1b}[24m\u{1b}[0m".to_string(),

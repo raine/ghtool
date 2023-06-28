@@ -1,6 +1,8 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 
+use crate::commands::CheckError;
+
 const TIMESTAMP_PATTERN: &str = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z";
 const ANSI_RESET: &str = r"\u{1b}\[0m";
 
@@ -17,12 +19,6 @@ lazy_static! {
     .unwrap();
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct TscError {
-    pub path: String,
-    pub lines: Vec<String>,
-}
-
 #[derive(PartialEq, Debug)]
 enum State {
     LookingForError,
@@ -32,8 +28,8 @@ enum State {
 #[derive(Debug)]
 pub struct TscLogParser {
     state: State,
-    current_error: Option<TscError>,
-    all_errors: Vec<TscError>,
+    current_error: Option<CheckError>,
+    all_errors: Vec<CheckError>,
     error_tag_start_col: usize,
     error_line_count: usize,
 }
@@ -58,7 +54,7 @@ impl TscLogParser {
                     let path = caps.name("path").unwrap().as_str().to_string();
                     let without_error_tag = line.strip_prefix("##[error]").unwrap_or(&line);
                     self.error_tag_start_col = caps.name("error").unwrap().start();
-                    self.current_error = Some(TscError {
+                    self.current_error = Some(CheckError {
                         lines: vec![without_error_tag.to_string()],
                         path,
                     });
@@ -101,7 +97,7 @@ impl TscLogParser {
         self.error_line_count = 0;
     }
 
-    pub fn parse(log: &str) -> Result<Vec<TscError>, eyre::Error> {
+    pub fn parse(log: &str) -> Result<Vec<CheckError>, eyre::Error> {
         let mut parser = TscLogParser::new();
 
         for line in log.lines() {
@@ -135,7 +131,7 @@ mod tests {
         assert_eq!(
             failing_files,
             vec![
-                TscError {
+                CheckError {
                     path: "src/index.ts".to_string(),
                     lines: vec![
                         "src/index.ts(3,21): error TS2769: No overload matches this call.".to_string(),
@@ -143,7 +139,7 @@ mod tests {
                         "    Argument of type '\"test\"' is not assignable to parameter of type 'boolean | undefined'.".to_string(),
                     ]
                 },
-                TscError {
+                CheckError {
                     path: "src/index.ts".to_string(),
                     lines: vec![
                         "src/index.ts(10,3): error TS2322: Type 'number' is not assignable to type 'string'.".to_string(),
@@ -165,13 +161,13 @@ mod tests {
         assert_eq!(
             failing_files,
             vec![
-                TscError {
+                CheckError {
                     path: "src/index.ts".to_string(),
                     lines: vec![
                         "src/index.ts(10,3): error TS2322: Type 'number' is not assignable to type 'string'.".to_string(),
                     ]
                 },
-                TscError {
+                CheckError {
                     path: "src/index.ts".to_string(),
                     lines: vec![
                         "src/index.ts(3,21): error TS2769: No overload matches this call.".to_string(),
@@ -190,7 +186,7 @@ mod tests {
 
         let failing_files = TscLogParser::parse(logs).unwrap();
         assert_eq!(failing_files, vec![
-            TscError {
+            CheckError {
                 path: "src/index.ts".to_string(),
                 lines: vec![
                     "\u{1b}[32m@owner/package:typecheck: \u{1b}[0msrc/index.ts(63,7): error TS1117: An object literal cannot have multiple properties with the same name.".to_string()
@@ -214,7 +210,7 @@ mod tests {
 
         let failing_files = TscLogParser::parse(logs).unwrap();
         assert_eq!(failing_files, vec![
-            TscError {
+            CheckError {
                 path: "src/components/Component.spec.tsx".to_string(),
                 lines: vec![
                     "\u{1b}[34m@project:typecheck: \u{1b}[0msrc/components/Component.spec.tsx(58,8): error TS2739: Type '{ foo: string; }' is missing the following properties from type 'Props': bar".to_string(),
