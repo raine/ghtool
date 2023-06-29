@@ -81,7 +81,13 @@ impl EslintLogParser {
 
                 if ESLINT_ISSUE.is_match(&line_no_ansi) {
                     let line = TIMESTAMP.replace(raw_line, "").to_string();
-                    self.current_path.as_mut().unwrap().lines.push(line);
+                    let line = line.strip_prefix("##[error]").unwrap_or(&line);
+                    let line = line.strip_prefix("##[warning]").unwrap_or(line);
+                    self.current_path
+                        .as_mut()
+                        .unwrap()
+                        .lines
+                        .push(line.to_string());
                     self.seen_eslint_issue_for_current_path = true;
                 } else if self.current_path_lines == 1 {
                     // If the line directly under path does not match ESLINT_ISSUE, reset back to
@@ -171,7 +177,7 @@ mod tests {
                     path: "/root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts".to_string(),
                     lines: vec![
                         "/root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts".to_string(),
-                        "##[warning]  1:42  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
+                        "  1:42  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
                             .to_string(),
                     ],
                 },
@@ -179,11 +185,11 @@ mod tests {
                     path: "/root_path/project_directory/module_2/setupModule2Test.ts".to_string(),
                     lines: vec![
                         "/root_path/project_directory/module_2/setupModule2Test.ts".to_string(),
-                        "##[warning]  166:58  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
+                        "  166:58  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
                             .to_string(),
-                        "##[warning]  309:55  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
+                        "  309:55  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
                             .to_string(),
-                        "##[warning]  470:55  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
+                        "  470:55  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
                             .to_string(),
                     ],
                 },
@@ -191,7 +197,7 @@ mod tests {
                     path: "/root_path/project_directory/module_3/getSpecificUploadImageResponse.ts".to_string(),
                     lines: vec![
                         "/root_path/project_directory/module_3/getSpecificUploadImageResponse.ts".to_string(),
-                        "##[warning]  4:47  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
+                        "  4:47  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
                             .to_string(),
                     ],
                 },
@@ -199,9 +205,9 @@ mod tests {
                     path: "/root_path/project_directory/module_4/submodule_2/setupInitialDB.ts".to_string(),
                     lines: vec![
                         "/root_path/project_directory/module_4/submodule_2/setupInitialDB.ts".to_string(),
-                        "##[error]  1:1   error  Delete `import·*·as·fs·from·'fs';⏎`  prettier/prettier"
+                        "  1:1   error  Delete `import·*·as·fs·from·'fs';⏎`  prettier/prettier"
                             .to_string(),
-                        "##[error]  1:13  error  'fs' is defined but never used       @typescript-eslint/no-unused-vars"
+                        "  1:13  error  'fs' is defined but never used       @typescript-eslint/no-unused-vars"
                             .to_string(),
                     ],
                 },
@@ -228,7 +234,7 @@ mod tests {
                         path: "/root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts".to_string(),
                         lines: vec![
                             "/root_path/project_directory/module_1/submodule_1/fixtures/data/file_1.ts".to_string(),
-                            "##[warning]  1:42  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
+                            "  1:42  warning  Missing return type on function  @typescript-eslint/explicit-module-boundary-types"
                                 .to_string(),
                         ],
                     },
