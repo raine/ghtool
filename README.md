@@ -3,15 +3,19 @@
 [![Crates.io][crates-badge]][crates-url]
 ![rust][build-badge]
 
-`ghtool` is a powerful command-line tool created to streamline interactions
-with Github, particularly revolving around Checks. Its primary use is in large
-projects where tests are run across multiple jobs.
+`ghtool` is a command-line tool, created to provide easy access and interaction
+with GitHub Actions checks. It allows developers to quickly identify failing
+tests, linting issues, and typecheck errors directly from the terminal. It
+reduces the need for manually sifting through logs, enabling you to directly
+address the issues.
+
+See the [demo](#demo).
 
 ## Key features
 
-- List failing tests across all test checks
-- List linting issues across all checks
-- List typecheck errors across all checks
+- List failing tests across all jobs
+- List linting issues across all jobs
+- List typecheck errors across all jobs
 
 ## Installation
 
@@ -154,6 +158,10 @@ yarn run v1.22.19
 $ NODE_ENV=test node ./node_modules/.bin/jest src/moduleA.test.ts src/moduleB.test.ts
 ...
 ```
+
+## Demo
+
+https://github.com/raine/ghtool/assets/11027/13a012ac-a854-48a0-b514-9fcbd02c02aa
 
 [crates-badge]: https://img.shields.io/crates/v/ghtool.svg
 [crates-url]: https://crates.io/crates/ghtool
