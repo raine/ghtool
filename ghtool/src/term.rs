@@ -16,8 +16,15 @@ pub fn print_header(header: &str) {
         let end_border = format!("└{}┘", horizontal_border);
         println!("{}", border);
         for line in lines {
-            let line_len = strip_ansi_escapes::strip(line).unwrap().len();
-            let line_padding = w - line_len - 4;
+            let stripped_line = strip_ansi_escapes::strip(line).unwrap();
+            let mut line = String::from_utf8(stripped_line).unwrap();
+            let line_len = line.chars().count();
+            if line_len > w - 4 {
+                let truncated_line_len = w - 7; // For ellipsis and spaces
+                line = line.chars().take(truncated_line_len).collect::<String>();
+                line.push_str("...");
+            }
+            let line_padding = w - line.chars().count() - 4;
             let header_line = format!("│ {}{} │", line, " ".repeat(line_padding));
             println!("{}", header_line);
         }
