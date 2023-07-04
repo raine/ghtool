@@ -1,19 +1,21 @@
+use bytes::Bytes;
+use eyre::Result;
+use futures::{stream::FuturesUnordered, Future};
+use indicatif::{MultiProgress, ProgressBar};
+use std::time::Duration;
+
+pub use self::auth_client::{AccessToken, AccessTokenResponse, CodeResponse, GithubAuthClient};
+pub use self::client::GithubClient;
+use crate::{git::Repository, spinner::make_spinner_style};
+
+pub use pull_request_status_checks::CheckConclusionState;
+pub use types::*;
+
+mod auth_client;
 mod client;
 mod pull_request_for_branch;
 mod pull_request_status_checks;
 mod types;
-
-use bytes::Bytes;
-use eyre::Result;
-use std::time::Duration;
-
-pub use client::GithubClient;
-use futures::{stream::FuturesUnordered, Future};
-use indicatif::{MultiProgress, ProgressBar};
-pub use pull_request_status_checks::CheckConclusionState;
-pub use types::*;
-
-use crate::{git::Repository, spinner::make_spinner_style};
 
 pub fn get_log_futures<'a>(
     client: &'a GithubClient,

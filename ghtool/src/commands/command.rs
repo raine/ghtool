@@ -9,7 +9,8 @@ use tracing::info;
 use crate::{
     git::Repository,
     github::{get_log_futures, CheckConclusionState, GithubClient, SimpleCheckRun},
-    term::{green, print_check_run_header},
+    term::{bold, green, print_check_run_header},
+    token_store,
 };
 
 pub trait ConfigPattern {
@@ -59,11 +60,24 @@ fn filter_check_runs<T: Command>(
 
 pub async fn handle_command<T: Command>(
     command: T,
-    client: &GithubClient,
     repo: &Repository,
     branch: &str,
     show_files_only: bool,
 ) -> Result<()> {
+    let token = token_store::get_token(&repo.hostname).map_err(|err| match err {
+        keyring::Error::NoEntry => {
+            eyre::eyre!(
+                "No token found for {}. Have you logged in? Run {}",
+                bold(&repo.hostname),
+                bold("ghtool login")
+            )
+        }
+        err => {
+            eyre::eyre!("Failed to get token for {}: {}", repo.hostname, err)
+        }
+    })?;
+
+    let client = GithubClient::new(&token)?;
     let pull_request = client
         .get_pr_for_branch_memoized(&repo.owner, &repo.name, branch)
         .await?;
@@ -91,7 +105,7 @@ pub async fn handle_command<T: Command>(
         return Ok(());
     }
 
-    let mut log_futures: FuturesUnordered<_> = get_log_futures(client, repo, &failed_check_runs);
+    let mut log_futures: FuturesUnordered<_> = get_log_futures(&client, repo, &failed_check_runs);
     let mut all_checks_errors = Vec::new();
     while let Some(result) = log_futures.next().await {
         let bytes = result.map_err(|_| eyre::eyre!("Error when getting job logs"))?;

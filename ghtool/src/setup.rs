@@ -12,13 +12,11 @@ use tracing_subscriber::EnvFilter;
 
 use crate::{
     cli::Cli,
-    gh_config::GhConfig,
     git::{parse_repository_from_github, Git, Repository},
-    github::GithubClient,
     repo_config::{read_repo_config, read_repo_config_from_path, RepoConfig},
 };
 
-pub fn setup() -> Result<(Cli, Repository, String, RepoConfig, GithubClient)> {
+pub fn setup() -> Result<(Cli, Repository, String, RepoConfig)> {
     let cli = Cli::parse();
 
     if cli.verbose {
@@ -26,11 +24,8 @@ pub fn setup() -> Result<(Cli, Repository, String, RepoConfig, GithubClient)> {
     }
 
     setup_env()?;
-    let (gh_config, repo_config, repo, branch) = setup_configs(&cli)?;
-    let site_config = gh_config.get_site_config(&repo.hostname)?;
-    let github_client = GithubClient::new(site_config.oauth_token.to_string())?;
-
-    Ok((cli, repo, branch, repo_config, github_client))
+    let (repo_config, repo, branch) = setup_configs(&cli)?;
+    Ok((cli, repo, branch, repo_config))
 }
 
 fn setup_env() -> Result<()> {
@@ -48,8 +43,7 @@ fn setup_env() -> Result<()> {
     Ok(())
 }
 
-fn setup_configs(cli: &Cli) -> Result<(GhConfig, RepoConfig, Repository, String)> {
-    let gh_config = GhConfig::new()?;
+fn setup_configs(cli: &Cli) -> Result<(RepoConfig, Repository, String)> {
     let env_repo_config = env::var("REPO_CONFIG")
         .map(|p| Path::new(&p).to_path_buf())
         .map_err(|e| eyre::eyre!("Error getting repo config path: {}", e))
@@ -77,7 +71,7 @@ fn setup_configs(cli: &Cli) -> Result<(GhConfig, RepoConfig, Repository, String)
     };
 
     info!(?repo_config, ?repo, "config");
-    Ok((gh_config, repo_config, repo, branch))
+    Ok((repo_config, repo, branch))
 }
 
 fn get_repo_path() -> Result<PathBuf> {

@@ -42,4 +42,10 @@ pub enum Commands {
         #[clap(long, short)]
         files: bool,
     },
+
+    /// Authenticate ghtool with GitHub API
+    Login {},
+
+    /// Deauthenticate ghtool with GitHub API
+    Logout {},
 }

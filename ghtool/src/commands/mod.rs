@@ -1,3 +1,5 @@
+pub mod auth;
+
 mod command;
 mod lint;
 mod tests;

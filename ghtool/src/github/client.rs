@@ -30,8 +30,8 @@ pub struct GithubClient {
 const GITHUB_BASE_URI: &str = "https://api.github.com";
 
 impl GithubClient {
-    pub fn new(oauth_token: String) -> Result<Self> {
-        let client = Self::make_base_client(&oauth_token)?;
+    pub fn new(oauth_token: &str) -> Result<Self> {
+        let client = Self::make_base_client(oauth_token)?;
         Ok(Self { client })
     }
 

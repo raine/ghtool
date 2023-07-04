@@ -27,11 +27,13 @@ cargo install ghtool
 
 ## Setup
 
-The tool currently uses [`gh`](https://github.com/cli/cli)'s oauth token to
-authenticate against GitHub API.
+`ghtool` requires a GitHub access token to access the GitHub API. The
+token is stored in the system keychain. The token is only used to access the
+GitHub API and is not used for any other purpose.
 
-[Install](https://github.com/cli/cli#installation) `gh` and run `gh auth login`
-and `ghtool` should be able to read the token from `~/.config/gh/hosts.yml`.
+```sh
+ght login
+```
 
 ## Usage
 
@@ -48,6 +50,8 @@ Commands:
   tests      Get the failing tests for the current branch's pull request's checks
   lint       Get lint issues for the current branch's pull request's checks
   typecheck  Get typechecking issues for the current branch's pull request's checks
+  login      Authenticate ghtool with GitHub API
+  logout     Deauthenticate ghtool with GitHub API
   help       Print this message or the help of the given subcommand(s)
 
 Options:
