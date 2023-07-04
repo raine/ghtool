@@ -6,16 +6,19 @@
 `ghtool` is a command-line tool, created to provide easy access and interaction
 with GitHub Actions checks. It allows developers to quickly identify failing
 tests, linting issues, and typecheck errors directly from the terminal. It
-reduces the need for manually sifting through logs, enabling you to directly
-address the issues.
+reduces the need for manually sifting through logs and navigating the GitHub
+UI.
+
+Especially useful when working with large codebases where test suite runs
+sharded across multiple jobs.
 
 See the [demo](#demo).
 
 ## Key features
 
-- List failing tests across all jobs
-- List linting issues across all jobs
-- List typecheck errors across all jobs
+- List failing tests across all jobs, currently only for Jest
+- List linting issues across all jobs, currently only for ESLint
+- List typecheck errors across all jobs, currently only for TypeScript
 
 ## Installation
 
@@ -30,6 +33,8 @@ cargo install ghtool
 `ghtool` requires a GitHub access token to access the GitHub API. The
 token is stored in the system keychain. The token is only used to access the
 GitHub API and is not used for any other purpose.
+
+To authenticate `ghtool` with GitHub API, run:
 
 ```sh
 ght login
