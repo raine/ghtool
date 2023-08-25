@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use eyre::Result;
 use regex::Regex;
 
+use crate::repo_config::BuildConfig;
 use crate::repo_config::RepoConfig;
-use crate::repo_config::TypecheckConfig;
 
 use self::tsc::TscLogParser;
 
@@ -13,38 +13,38 @@ use super::ConfigPattern;
 
 mod tsc;
 
-impl ConfigPattern for TypecheckConfig {
+impl ConfigPattern for BuildConfig {
     fn job_pattern(&self) -> &Regex {
         &self.job_pattern
     }
 }
 
-pub struct TypecheckCommand {
-    config: TypecheckConfig,
+pub struct BuildCommand {
+    config: BuildConfig,
 }
 
-impl TypecheckCommand {
+impl BuildCommand {
     pub fn from_repo_config(repo_config: RepoConfig) -> Result<Self> {
-        let typecheck_config = repo_config
-            .typecheck
-            .ok_or_else(|| eyre::eyre!("Error: no typecheck section found in .ghtool.toml"))?;
+        let build_config = repo_config
+            .build
+            .ok_or_else(|| eyre::eyre!("Error: no build section found in .ghtool.toml"))?;
 
         Ok(Self {
-            config: typecheck_config,
+            config: build_config,
         })
     }
 }
 
 #[async_trait]
-impl Command for TypecheckCommand {
-    type ConfigType = TypecheckConfig;
+impl Command for BuildCommand {
+    type ConfigType = BuildConfig;
 
     fn name(&self) -> &'static str {
-        "typecheck"
+        "build"
     }
 
     fn check_error_plural(&self) -> &'static str {
-        "type errors"
+        "build errors"
     }
 
     fn config(&self) -> &Self::ConfigType {

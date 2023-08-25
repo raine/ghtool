@@ -5,9 +5,8 @@
 
 `ghtool` is a command-line tool, created to provide easy access and interaction
 with GitHub Actions checks. It allows developers to quickly identify failing
-tests, linting issues, and typecheck errors directly from the terminal. It
-reduces the need for manually sifting through logs and navigating the GitHub
-UI.
+tests, linting issues, and build errors directly from the terminal. Reduces the
+need for manually sifting through logs and navigating the GitHub UI.
 
 Especially useful when working with large codebases where test suite runs
 sharded across multiple jobs.
@@ -18,7 +17,7 @@ See the [demo](#demo).
 
 - List failing tests across all jobs, currently only for Jest
 - List linting issues across all jobs, currently only for ESLint
-- List typecheck errors across all jobs, currently only for TypeScript
+- List build errors across all jobs, currently only for TypeScript
 
 ## Installation
 
@@ -52,12 +51,12 @@ to determine which pull request to query.
 Usage: ght [OPTIONS] [COMMAND]
 
 Commands:
-  test       Get the failing tests for the current branch's pull request's checks
-  lint       Get lint issues for the current branch's pull request's checks
-  typecheck  Get typechecking issues for the current branch's pull request's checks
-  login      Authenticate ghtool with GitHub API
-  logout     Deauthenticate ghtool with GitHub API
-  help       Print this message or the help of the given subcommand(s)
+  test    Get the failing tests for the current branch's pull request's checks
+  lint    Get lint issues for the current branch's pull request's checks
+  build   Get build issues for the current branch's pull request's checks
+  login   Authenticate ghtool with GitHub API
+  logout  Deauthenticate ghtool with GitHub API
+  help    Print this message or the help of the given subcommand(s)
 
 Options:
   -v, --verbose          Print verbose output
@@ -69,7 +68,7 @@ Options:
 ## Configuration
 
 The `.ghtool.toml` configuration file in your repository root is required. The
-file consists of three optional sections: `test`, `lint`, and `typecheck`. Each
+file consists of three optional sections: `test`, `lint`, and `build`. Each
 section is used to configure the corresponding functionality of `ghtool`.
 
 ### `test`
@@ -84,10 +83,10 @@ section is used to configure the corresponding functionality of `ghtool`.
 - `tool`: Lint tool used in the checks. Determines how logs are parsed. Only
   "eslint" is currently supported.
 
-### `typecheck`
+### `build`
 
-- `job_pattern`: Regular expression to match typechecking job names.
-- `tool`: Typechecker used in matching jobs. Determines how logs are parsed.
+- `job_pattern`: Regular expression to match build job names.
+- `tool`: Build tool used in matching jobs. Determines how logs are parsed.
   Only "tsc" is currently supported.
 
 ### Example
@@ -103,7 +102,7 @@ tool = "jest"
 job_pattern = "Lint"
 tool = "eslint"
 
-[typecheck]
+[build]
 job_pattern = "Typecheck"
 tool = "tsc"
 ```

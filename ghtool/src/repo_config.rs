@@ -6,7 +6,7 @@ use std::{fs, path::Path};
 pub struct RepoConfig {
     pub test: Option<TestConfig>,
     pub lint: Option<LintConfig>,
-    pub typecheck: Option<TypecheckConfig>,
+    pub build: Option<BuildConfig>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -24,10 +24,10 @@ pub struct LintConfig {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct TypecheckConfig {
+pub struct BuildConfig {
     #[serde(deserialize_with = "deserialize_regex")]
     pub job_pattern: regex::Regex,
-    pub tool: TypecheckTool,
+    pub tool: BuildTool,
 }
 
 #[derive(Debug)]
@@ -41,7 +41,7 @@ pub enum LintTool {
 }
 
 #[derive(Debug)]
-pub enum TypecheckTool {
+pub enum BuildTool {
     Tsc,
 }
 
@@ -83,12 +83,12 @@ impl<'de> Deserialize<'de> for LintTool {
     }
 }
 
-impl<'de> Deserialize<'de> for TypecheckTool {
+impl<'de> Deserialize<'de> for BuildTool {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserialize_tool(deserializer, "tsc", TypecheckTool::Tsc, "typecheck tool")
+        deserialize_tool(deserializer, "tsc", BuildTool::Tsc, "build tool")
     }
 }
 

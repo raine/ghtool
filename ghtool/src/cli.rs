@@ -36,8 +36,8 @@ pub enum Commands {
         files: bool,
     },
 
-    /// Get typechecking issues for the current branch's pull request's checks
-    Typecheck {
+    /// Get build issues for the current branch's pull request's checks
+    Build {
         /// Output only the file paths
         #[clap(long, short)]
         files: bool,

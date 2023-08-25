@@ -1,6 +1,6 @@
 use clap::Parser;
 use cli::Commands;
-use commands::{auth, handle_command, LintCommand, TestCommand, TypecheckCommand};
+use commands::{auth, handle_command, BuildCommand, LintCommand, TestCommand};
 use eyre::Result;
 use setup::setup;
 use term::exit_with_error;
@@ -28,8 +28,8 @@ async fn run() -> Result<()> {
             let command = LintCommand::from_repo_config(repo_config)?;
             handle_command(command, &repo, &branch, *files).await
         }
-        Some(Commands::Typecheck { files }) => {
-            let command = TypecheckCommand::from_repo_config(repo_config)?;
+        Some(Commands::Build { files }) => {
+            let command = BuildCommand::from_repo_config(repo_config)?;
             handle_command(command, &repo, &branch, *files).await
         }
         Some(Commands::Login {}) => {
