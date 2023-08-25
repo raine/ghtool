@@ -174,3 +174,10 @@ https://github.com/raine/ghtool/assets/11027/13a012ac-a854-48a0-b514-9fcbd02c02a
 [crates-badge]: https://img.shields.io/crates/v/ghtool.svg
 [crates-url]: https://crates.io/crates/ghtool
 [build-badge]: https://github.com/raine/ghtool/actions/workflows/rust.yml/badge.svg
+
+## Changelog
+
+## 0.7.0 (26.08.2023)
+
+- Renamed `typecheck` command to `build`.
+- Renamed `tests` command to `test`.
