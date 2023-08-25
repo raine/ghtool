@@ -52,7 +52,7 @@ to determine which pull request to query.
 Usage: ght [OPTIONS] [COMMAND]
 
 Commands:
-  tests      Get the failing tests for the current branch's pull request's checks
+  test       Get the failing tests for the current branch's pull request's checks
   lint       Get lint issues for the current branch's pull request's checks
   typecheck  Get typechecking issues for the current branch's pull request's checks
   login      Authenticate ghtool with GitHub API
@@ -113,7 +113,7 @@ tool = "tsc"
 ### Check failing tests
 
 ```
-% ght tests
+% ght test
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ Job: Unit tests sharded (2)                                                 │
 │ Url: https://github.com/org/repo/actions/runs/5252627921/jobs/9488888294    │
@@ -162,7 +162,7 @@ FAIL src/components/AnotherComponent/AnotherComponent.test.tsx
 ### Run tests for failing test files
 
 ```sh
-% ght tests --files | xargs yarn test
+% ght test --files | xargs yarn test
 yarn run v1.22.19
 $ NODE_ENV=test node ./node_modules/.bin/jest src/moduleA.test.ts src/moduleB.test.ts
 ...

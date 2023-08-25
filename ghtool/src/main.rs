@@ -20,7 +20,7 @@ async fn run() -> Result<()> {
     let (cli, repo, branch, repo_config) = setup()?;
 
     match &cli.command {
-        Some(Commands::Tests { files }) => {
+        Some(Commands::Test { files }) => {
             let command = TestCommand::from_repo_config(repo_config)?;
             handle_command(command, &repo, &branch, *files).await
         }

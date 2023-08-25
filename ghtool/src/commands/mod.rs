@@ -2,10 +2,10 @@ pub mod auth;
 
 mod command;
 mod lint;
-mod tests;
+mod test;
 mod typecheck;
 
 pub use command::*;
 pub use lint::*;
-pub use tests::*;
+pub use test::*;
 pub use typecheck::*;
