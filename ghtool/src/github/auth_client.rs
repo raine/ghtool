@@ -8,7 +8,6 @@ pub struct GithubAuthClient {
 }
 
 const GITHUB_BASE_URI: &str = "https://github.com";
-// const CLIENT_ID: &str = "Iv1.1bbd5e03617adebb";
 const CLIENT_ID: &str = "32a2525cc736ee9b63ae";
 const USER_AGENT: &str = "ghtool";
 const GRANT_TYPE: &str = "urn:ietf:params:oauth:grant-type:device_code";
