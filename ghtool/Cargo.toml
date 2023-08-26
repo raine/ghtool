@@ -5,6 +5,7 @@ edition = "2021"
 description = "A command-line tool for interacting with Github API with some specialized features oriented around Checks"
 license = "MIT"
 repository = "https://github.com/raine/ghtool"
+readme = "README.md"
 
 [[bin]]
 name = "ght"
