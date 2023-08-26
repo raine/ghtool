@@ -39,6 +39,8 @@ To authenticate `ghtool` with GitHub API, run:
 ght login
 ```
 
+For details on why the `repo` scope is needed: [On required permissions](#on-required-permissions)
+
 ## Usage
 
 The tool is installed as executable `ght` for ease of use.
@@ -171,9 +173,22 @@ $ NODE_ENV=test node ./node_modules/.bin/jest src/moduleA.test.ts src/moduleB.te
 
 https://github.com/raine/ghtool/assets/11027/13a012ac-a854-48a0-b514-9fcbd02c02aa
 
-[crates-badge]: https://img.shields.io/crates/v/ghtool.svg
-[crates-url]: https://crates.io/crates/ghtool
-[build-badge]: https://github.com/raine/ghtool/actions/workflows/rust.yml/badge.svg
+## On required permissions
+
+The tool currently uses Github's OAuth device flow to authenticate users. To
+access workflow job logs through OAuth, which lacks fine-grained permissions,
+[the repo scope is required][job-logs-docs], granting scary amount of
+permissions.
+
+Github App auth flow enables more fine grained permissions, but doesn't seem to
+work<sup>1</sup> in the case where someone else than you owns the repository
+that is queried. Incidentally, the official GitHub CLI, which I used as
+reference, also uses OAuth flow with the `repo` scope and more
+([screenshot][gh-auth-logs]).
+
+Feel free to reach out through issues if you know how to improve this.
+
+<sup>1</sup> This GraphQL query returns 200 but can't find the private repository: https://github.com/raine/ghtool/blob/master/ghtool/src/github/pull_request_for_branch.graphql
 
 ## Changelog
 
@@ -185,3 +200,9 @@ https://github.com/raine/ghtool/assets/11027/13a012ac-a854-48a0-b514-9fcbd02c02a
 
 - Renamed `typecheck` command to `build`.
 - Renamed `tests` command to `test`.
+
+[crates-badge]: https://img.shields.io/crates/v/ghtool.svg
+[crates-url]: https://crates.io/crates/ghtool
+[build-badge]: https://github.com/raine/ghtool/actions/workflows/rust.yml/badge.svg
+[job-logs-docs]: https://docs.github.com/en/rest/actions/workflow-jobs?apiVersion=2022-11-28#download-job-logs-for-a-workflow-run
+[gh-auth-logs]: https://github.com/raine/ghtool/assets/11027/c5b86639-07d0-4737-a2bc-519ead2f3b9f
