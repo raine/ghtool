@@ -192,7 +192,7 @@ Feel free to reach out through issues if you know how to improve this.
 
 ## Changelog
 
-## Unreleased
+## 0.7.2 (26.08.2023)
 
 - Allow running commands from subdirectories within a Git repository.
 
