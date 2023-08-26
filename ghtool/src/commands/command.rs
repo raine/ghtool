@@ -108,7 +108,7 @@ pub async fn handle_command<T: Command>(
     let mut log_futures: FuturesUnordered<_> = get_log_futures(&client, repo, &failed_check_runs);
     let mut all_checks_errors = Vec::new();
     while let Some(result) = log_futures.next().await {
-        let bytes = result.map_err(|_| eyre::eyre!("Error when getting job logs"))?;
+        let bytes = result.map_err(|err| eyre::eyre!("Error when getting job logs: {err}"))?;
         let log = String::from_utf8_lossy(&bytes);
         let check_errors = command.parse_log(&log)?;
         all_checks_errors.push(check_errors);
