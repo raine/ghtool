@@ -6,7 +6,7 @@ use std::{
 };
 
 use clap::Parser;
-use eyre::Result;
+use eyre::{Context, Result};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -74,10 +74,24 @@ fn setup_configs(cli: &Cli) -> Result<(RepoConfig, Repository, String)> {
     Ok((repo_config, repo, branch))
 }
 
+fn find_git_ancestor(mut dir: PathBuf) -> Option<PathBuf> {
+    loop {
+        let git_dir = dir.join(".git");
+        if git_dir.is_dir() {
+            return Some(dir);
+        }
+
+        if !dir.pop() {
+            return None;
+        }
+    }
+}
+
 fn get_repo_path() -> Result<PathBuf> {
     env::var("REPO_PATH")
-        .or_else(|_| env::current_dir().map(|p| p.to_string_lossy().to_string()))
         .map(|p| Path::new(&p).to_path_buf())
+        .or_else(|_| env::current_dir().wrap_err("Failed to get current directory"))
+        .and_then(|path| find_git_ancestor(path).ok_or(eyre::eyre!("Not in git repository")))
         .map_err(|e| eyre::eyre!("Error getting repo path: {}", e))
 }
 

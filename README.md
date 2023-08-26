@@ -177,6 +177,10 @@ https://github.com/raine/ghtool/assets/11027/13a012ac-a854-48a0-b514-9fcbd02c02a
 
 ## Changelog
 
+## Unreleased
+
+- Allow running commands from subdirectories within a Git repository.
+
 ## 0.7.0 (26.08.2023)
 
 - Renamed `typecheck` command to `build`.
