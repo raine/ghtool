@@ -3,13 +3,14 @@
 [![Crates.io][crates-badge]][crates-url]
 ![rust][build-badge]
 
-`ghtool` is a command-line tool, created to provide easy access and interaction
-with GitHub Actions checks. It allows developers to quickly identify failing
-tests, linting issues, and build errors directly from the terminal. Reduces the
-need for manually sifting through logs and navigating the GitHub UI.
+`ghtool` is a CLI tool designed to simplify your interaction with GitHub
+Actions, particularly when it comes to checking for test failures, linting
+issues, and build errors. It provides aggregated view of these issues without
+having to manually go through logs or GitHub's user interface. This is
+especially helpful in large codebases where tests are distributed across
+multiple jobs.
 
-Especially useful when working with large codebases where test suite runs
-sharded across multiple jobs.
+<img width="75%" src="https://github.com/raine/ghtool/assets/11027/1c558ae1-7545-4891-bcd5-1a2c37b1b927" />
 
 See the [demo](#demo).
 
@@ -196,7 +197,7 @@ Feel free to reach out through issues if you know how to improve this.
 
 ## Unreleased
 
-- Add `ght all` subcommand.
+- Added `ght all` subcommand.
 
 ## 0.7.2 (26.08.2023)
 
