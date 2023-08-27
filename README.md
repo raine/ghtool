@@ -195,7 +195,7 @@ Feel free to reach out through issues if you know how to improve this.
 
 ## Changelog
 
-## Unreleased
+## 0.8.0 (27.08.2023)
 
 - Added `ght all` subcommand.
 
