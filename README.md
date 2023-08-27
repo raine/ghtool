@@ -13,11 +13,12 @@ sharded across multiple jobs.
 
 See the [demo](#demo).
 
-## Key features
+## Features
 
 - List failing tests across all jobs, currently only for Jest
 - List linting issues across all jobs, currently only for ESLint
 - List build errors across all jobs, currently only for TypeScript
+- With `all` subcommand, wait for checks to complete and list test, lint or build errors
 
 ## Installation
 
@@ -56,6 +57,7 @@ Commands:
   test    Get the failing tests for the current branch's pull request's checks
   lint    Get lint issues for the current branch's pull request's checks
   build   Get build issues for the current branch's pull request's checks
+  all     Wait for checks to complete and run all test, lint and build together
   login   Authenticate ghtool with GitHub API
   logout  Deauthenticate ghtool with GitHub API
   help    Print this message or the help of the given subcommand(s)
@@ -191,6 +193,10 @@ Feel free to reach out through issues if you know how to improve this.
 <sup>1</sup> This GraphQL query returns 200 but can't find the private repository: https://github.com/raine/ghtool/blob/master/ghtool/src/github/pull_request_for_branch.graphql
 
 ## Changelog
+
+## Unreleased
+
+- Add `ght all` subcommand.
 
 ## 0.7.2 (26.08.2023)
 

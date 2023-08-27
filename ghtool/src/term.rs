@@ -46,3 +46,15 @@ pub fn print_check_run_header(check_run: &github::SimpleCheckRun) {
         check_run.url.as_ref().unwrap()
     ));
 }
+
+pub fn print_all_checks_green() {
+    eprintln!("{} All checks are green", green("✓"));
+}
+
+pub fn print_some_checks_in_progress(command_name: &str) {
+    eprintln!(
+        "{} Some {} checks are still in progress",
+        bold("⚠"),
+        command_name
+    );
+}

@@ -1,6 +1,6 @@
 use clap::Parser;
 use cli::Commands;
-use commands::{auth, handle_command, BuildCommand, LintCommand, TestCommand};
+use commands::{auth, handle_all_command, handle_command, BuildCommand, LintCommand, TestCommand};
 use eyre::Result;
 use setup::setup;
 use term::exit_with_error;
@@ -21,17 +21,18 @@ async fn run() -> Result<()> {
 
     match &cli.command {
         Some(Commands::Test { files }) => {
-            let command = TestCommand::from_repo_config(repo_config)?;
+            let command = TestCommand::from_repo_config(&repo_config)?;
             handle_command(command, &repo, &branch, *files).await
         }
         Some(Commands::Lint { files }) => {
-            let command = LintCommand::from_repo_config(repo_config)?;
+            let command = LintCommand::from_repo_config(&repo_config)?;
             handle_command(command, &repo, &branch, *files).await
         }
         Some(Commands::Build { files }) => {
-            let command = BuildCommand::from_repo_config(repo_config)?;
+            let command = BuildCommand::from_repo_config(&repo_config)?;
             handle_command(command, &repo, &branch, *files).await
         }
+        Some(Commands::All {}) => handle_all_command(&repo_config, &repo, &branch).await,
         Some(Commands::Login {}) => {
             auth::login(&repo.hostname).await?;
             Ok(())

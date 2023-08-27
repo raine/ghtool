@@ -1,7 +1,8 @@
 use bytes::Bytes;
 use eyre::Result;
-use futures::{stream::FuturesUnordered, Future};
+use futures::future::try_join_all;
 use indicatif::{MultiProgress, ProgressBar};
+use std::collections::HashMap;
 use std::time::Duration;
 
 pub use self::auth_client::{AccessToken, AccessTokenResponse, CodeResponse, GithubAuthClient};
@@ -10,20 +11,22 @@ use crate::{git::Repository, spinner::make_spinner_style};
 
 pub use pull_request_status_checks::CheckConclusionState;
 pub use types::*;
+pub use wait_for_pr_checks::*;
 
 mod auth_client;
 mod client;
 mod pull_request_for_branch;
 mod pull_request_status_checks;
 mod types;
+mod wait_for_pr_checks;
 
-pub fn get_log_futures<'a>(
-    client: &'a GithubClient,
-    repo: &'a Repository,
-    check_runs: &'a [SimpleCheckRun],
-) -> FuturesUnordered<impl Future<Output = Result<Bytes>> + 'a> {
+pub async fn fetch_check_run_logs(
+    client: &GithubClient,
+    repo: &Repository,
+    check_runs: &[SimpleCheckRun],
+) -> Result<HashMap<u64, Bytes>> {
     let m = MultiProgress::new();
-    let log_futures: FuturesUnordered<_> = check_runs
+    let log_futures: Vec<_> = check_runs
         .iter()
         .map(|cr| {
             let pb = m.add(ProgressBar::new_spinner());
@@ -31,15 +34,18 @@ pub fn get_log_futures<'a>(
             pb.set_style(make_spinner_style());
             pb.set_message(format!("Fetching logs for check: {}", cr.name));
 
+            let check_run_id = cr.id;
             async move {
                 let result = client
-                    .get_job_logs(&repo.owner, &repo.name, cr.id, &pb)
+                    .get_job_logs(&repo.owner, &repo.name, check_run_id, &pb)
                     .await;
                 pb.finish_and_clear();
-                result
+                result.map(|bytes| (check_run_id, bytes))
             }
         })
         .collect();
 
-    log_futures
+    let results = try_join_all(log_futures).await?;
+    let log_map: HashMap<u64, Bytes> = results.into_iter().collect();
+    Ok(log_map)
 }

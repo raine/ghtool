@@ -19,14 +19,16 @@ impl ConfigPattern for TestConfig {
     }
 }
 
+#[derive(Clone)]
 pub struct TestCommand {
     config: TestConfig,
 }
 
 impl TestCommand {
-    pub fn from_repo_config(repo_config: RepoConfig) -> Result<Self> {
+    pub fn from_repo_config(repo_config: &RepoConfig) -> Result<Self> {
         let test_config = repo_config
             .test
+            .clone()
             .ok_or_else(|| eyre::eyre!("Error: no test section found in .ghtool.toml"))?;
 
         Ok(Self {
@@ -37,8 +39,6 @@ impl TestCommand {
 
 #[async_trait]
 impl Command for TestCommand {
-    type ConfigType = TestConfig;
-
     fn name(&self) -> &'static str {
         "test"
     }
@@ -47,7 +47,7 @@ impl Command for TestCommand {
         "test errors"
     }
 
-    fn config(&self) -> &Self::ConfigType {
+    fn config(&self) -> &dyn ConfigPattern {
         &self.config
     }
 

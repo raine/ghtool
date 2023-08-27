@@ -9,38 +9,38 @@ pub struct RepoConfig {
     pub build: Option<BuildConfig>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct TestConfig {
     #[serde(deserialize_with = "deserialize_regex")]
     pub job_pattern: regex::Regex,
     pub tool: TestRunner,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct LintConfig {
     #[serde(deserialize_with = "deserialize_regex")]
     pub job_pattern: regex::Regex,
     pub tool: LintTool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct BuildConfig {
     #[serde(deserialize_with = "deserialize_regex")]
     pub job_pattern: regex::Regex,
     pub tool: BuildTool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TestRunner {
     Jest,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LintTool {
     Eslint,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BuildTool {
     Tsc,
 }

@@ -1,15 +1,24 @@
-use std::collections::HashSet;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use eyre::Result;
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::future::try_join_all;
 use regex::Regex;
+use tokio::task::JoinHandle;
 use tracing::info;
 
 use crate::{
+    commands::{BuildCommand, LintCommand, TestCommand},
     git::Repository,
-    github::{get_log_futures, CheckConclusionState, GithubClient, SimpleCheckRun},
-    term::{bold, green, print_check_run_header},
+    github::{
+        fetch_check_run_logs, wait_for_pr_checks, CheckConclusionState, GithubClient,
+        SimpleCheckRun,
+    },
+    repo_config::RepoConfig,
+    term::{bold, print_all_checks_green, print_check_run_header, print_some_checks_in_progress},
     token_store,
 };
 
@@ -24,18 +33,16 @@ pub struct CheckError {
 }
 
 #[async_trait]
-pub trait Command {
-    type ConfigType: ConfigPattern;
-
+pub trait Command: Sync + Send {
     fn name(&self) -> &'static str;
-    fn config(&self) -> &Self::ConfigType;
-    fn parse_log(&self, logs: &str) -> Result<Vec<CheckError>>;
+    fn config(&self) -> &dyn ConfigPattern;
     fn check_error_plural(&self) -> &'static str;
+    fn parse_log(&self, logs: &str) -> Result<Vec<CheckError>>;
 }
 
-fn filter_check_runs<T: Command>(
-    command: &T,
-    check_runs: Vec<SimpleCheckRun>,
+fn filter_check_runs(
+    command: &dyn Command, // Change from a generic to a trait object
+    check_runs: &[SimpleCheckRun],
 ) -> (Vec<SimpleCheckRun>, bool, bool) {
     let mut failed_check_runs = Vec::new();
     let mut any_in_progress = false;
@@ -50,7 +57,7 @@ fn filter_check_runs<T: Command>(
             }
 
             if run.conclusion == Some(CheckConclusionState::Failure) {
-                failed_check_runs.push(run);
+                failed_check_runs.push(run.clone());
             }
         }
     }
@@ -64,27 +71,15 @@ pub async fn handle_command<T: Command>(
     branch: &str,
     show_files_only: bool,
 ) -> Result<()> {
-    let token = token_store::get_token(&repo.hostname).map_err(|err| match err {
-        keyring::Error::NoEntry => {
-            eyre::eyre!(
-                "No token found for {}. Have you logged in? Run {}",
-                bold(&repo.hostname),
-                bold("ghtool login")
-            )
-        }
-        err => {
-            eyre::eyre!("Failed to get token for {}: {}", repo.hostname, err)
-        }
-    })?;
-
+    let token = get_token(&repo.hostname)?;
     let client = GithubClient::new(&token)?;
     let pull_request = client
         .get_pr_for_branch_memoized(&repo.owner, &repo.name, branch)
         .await?;
 
-    let all_check_runs = client.get_pr_status_checks(&pull_request.id).await?;
+    let all_check_runs = client.get_pr_status_checks(&pull_request.id, true).await?;
     let (failed_check_runs, any_in_progress, no_matching_runs) =
-        filter_check_runs(&command, all_check_runs);
+        filter_check_runs(&command, &all_check_runs);
     info!(?failed_check_runs, "got failed check runs");
 
     if no_matching_runs {
@@ -98,18 +93,18 @@ pub async fn handle_command<T: Command>(
 
     if failed_check_runs.is_empty() {
         if any_in_progress {
-            eprintln!("Some {} checks are in progress", command.name());
+            print_some_checks_in_progress(command.name());
         } else {
-            eprintln!("{}  All checks are green", green("✓"));
+            print_all_checks_green();
         }
         return Ok(());
     }
 
-    let mut log_futures: FuturesUnordered<_> = get_log_futures(&client, repo, &failed_check_runs);
+    let check_run_logs = fetch_check_run_logs(&client, repo, &failed_check_runs).await?;
     let mut all_checks_errors = Vec::new();
-    while let Some(result) = log_futures.next().await {
-        let bytes = result.map_err(|err| eyre::eyre!("Error when getting job logs: {err}"))?;
-        let log = String::from_utf8_lossy(&bytes);
+
+    for (_check_run_id, log_bytes) in check_run_logs {
+        let log = String::from_utf8_lossy(&log_bytes);
         let check_errors = command.parse_log(&log)?;
         all_checks_errors.push(check_errors);
     }
@@ -123,6 +118,88 @@ pub async fn handle_command<T: Command>(
         print_errored_files(all_checks_errors);
     } else {
         print_errors(&failed_check_runs, all_checks_errors);
+    }
+
+    Ok(())
+}
+
+#[derive(Eq, Hash, PartialEq, Clone, Copy, Debug)]
+enum CommandType {
+    Test,
+    Lint,
+    Build,
+}
+
+pub async fn handle_all_command(
+    repo_config: &RepoConfig,
+    repo: &Repository,
+    branch: &str,
+) -> Result<()> {
+    let token = get_token(&repo.hostname)?;
+    let client = GithubClient::new(&token)?;
+    let pull_request = client
+        .get_pr_for_branch_memoized(&repo.owner, &repo.name, branch)
+        .await?;
+
+    let all_check_runs = wait_for_pr_checks(&client, pull_request.id).await?;
+    let mut all_failed_check_runs = Vec::new();
+    let mut check_run_command_map: HashMap<CheckRunId, CommandType> = HashMap::new();
+    let mut command_check_run_map: HashMap<CommandType, Vec<CheckRunId>> = HashMap::new();
+    let test_command = TestCommand::from_repo_config(repo_config)?;
+    let build_command = BuildCommand::from_repo_config(repo_config)?;
+    let lint_command = LintCommand::from_repo_config(repo_config)?;
+    let mut commands: HashMap<CommandType, Arc<dyn Command + Send + Sync>> = HashMap::new();
+    commands.insert(CommandType::Test, Arc::new(test_command));
+    commands.insert(CommandType::Build, Arc::new(build_command));
+    commands.insert(CommandType::Lint, Arc::new(lint_command));
+
+    for (command_type, command) in &commands {
+        add_command_info(
+            command.as_ref(),
+            *command_type,
+            &all_check_runs,
+            &mut all_failed_check_runs,
+            &mut check_run_command_map,
+            &mut command_check_run_map,
+        );
+    }
+
+    let mut all_check_errors = process_failed_check_runs(
+        &client,
+        repo,
+        &commands,
+        &mut check_run_command_map,
+        &all_failed_check_runs,
+    )
+    .await?;
+
+    let mut all_green = true;
+    for command_type in &[CommandType::Test, CommandType::Build, CommandType::Lint] {
+        let check_run_ids = command_check_run_map
+            .remove(command_type)
+            .unwrap_or_default();
+        let check_runs: Vec<_> = check_run_ids
+            .iter()
+            .filter_map(|&id| all_check_runs.iter().find(|&run| run.id == id).cloned())
+            .collect();
+
+        let mut check_errors = Vec::new();
+        for check_run_id in &check_run_ids {
+            if let Some(errors) = all_check_errors.remove(check_run_id) {
+                check_errors.push(errors);
+            }
+        }
+
+        if check_errors.iter().all(|s| s.is_empty()) {
+            continue;
+        }
+
+        all_green = false;
+        print_errors(&check_runs, check_errors);
+    }
+
+    if all_green {
+        print_all_checks_green();
     }
 
     Ok(())
@@ -151,4 +228,85 @@ fn print_errors(failed_check_runs: &[SimpleCheckRun], all_checks_errors: Vec<Vec
                 .flat_map(|error| error.lines)
                 .for_each(|line| println!("{}", line));
         });
+}
+
+type CheckRunId = u64;
+
+/// Get logs for each failed check run, and parse them into a map of command type to check errors
+async fn process_failed_check_runs(
+    client: &GithubClient,
+    repo: &Repository,
+    commands: &HashMap<CommandType, Arc<dyn Command + Send + Sync>>,
+    // Used to determine how check run's logs should be parsed
+    check_run_command_map: &mut HashMap<CheckRunId, CommandType>,
+    all_failed_check_runs: &[SimpleCheckRun],
+) -> Result<HashMap<CheckRunId, Vec<CheckError>>> {
+    let log_map = fetch_check_run_logs(client, repo, all_failed_check_runs).await?;
+    #[allow(clippy::type_complexity)]
+    let mut parse_futures: Vec<JoinHandle<Result<(CheckRunId, Vec<CheckError>)>>> = Vec::new();
+
+    for (check_run_id, log_bytes) in log_map.iter() {
+        let check_run_id = *check_run_id;
+        let log_bytes = log_bytes.clone();
+        if let Some(command_type) = check_run_command_map.remove(&check_run_id) {
+            let command = commands.get(&command_type).unwrap().clone();
+
+            let handle = tokio::task::spawn_blocking(move || {
+                let log_str = std::str::from_utf8(&log_bytes)?;
+                Ok((check_run_id, command.parse_log(log_str)?))
+            });
+            parse_futures.push(handle);
+        }
+    }
+
+    let results = try_join_all(parse_futures).await?;
+    let mut check_errors_map = HashMap::new();
+    for result in results {
+        let (command_type, check_errors) = result?;
+        check_errors_map
+            .entry(command_type)
+            .or_insert_with(Vec::new)
+            .extend(check_errors);
+    }
+
+    Ok(check_errors_map)
+}
+
+fn get_token(hostname: &str) -> Result<String> {
+    // In development, macOS is constantly asking for password when token store is accessed with a
+    // new binary
+    if let Ok(token) = std::env::var("TOKEN") {
+        return Ok(token);
+    }
+
+    token_store::get_token(hostname).map_err(|err| match err {
+        keyring::Error::NoEntry => {
+            eyre::eyre!(
+                "No token found for {}. Have you logged in? Run {}",
+                bold(hostname),
+                bold("ghtool login")
+            )
+        }
+        err => eyre::eyre!("Failed to get token for {}: {}", hostname, err),
+    })
+}
+
+fn add_command_info(
+    command: &dyn Command,
+    command_type: CommandType,
+    all_check_runs: &[SimpleCheckRun],
+    all_failed_check_runs: &mut Vec<SimpleCheckRun>,
+    check_run_command_map: &mut HashMap<u64, CommandType>,
+    command_check_run_map: &mut HashMap<CommandType, Vec<u64>>,
+) {
+    let (failed, _, _) = filter_check_runs(command, all_check_runs);
+    all_failed_check_runs.extend_from_slice(&failed);
+
+    for check_run in &failed {
+        check_run_command_map.insert(check_run.id, command_type);
+        command_check_run_map
+            .entry(command_type)
+            .or_insert_with(Vec::new)
+            .push(check_run.id);
+    }
 }

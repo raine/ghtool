@@ -19,14 +19,16 @@ impl ConfigPattern for LintConfig {
     }
 }
 
+#[derive(Clone)]
 pub struct LintCommand {
     config: LintConfig,
 }
 
 impl LintCommand {
-    pub fn from_repo_config(repo_config: RepoConfig) -> Result<Self> {
+    pub fn from_repo_config(repo_config: &RepoConfig) -> Result<Self> {
         let lint_config = repo_config
             .lint
+            .clone()
             .ok_or_else(|| eyre::eyre!("Error: no lint section found in .ghtool.toml"))?;
 
         Ok(Self {
@@ -37,8 +39,6 @@ impl LintCommand {
 
 #[async_trait]
 impl Command for LintCommand {
-    type ConfigType = LintConfig;
-
     fn name(&self) -> &'static str {
         "lint"
     }
@@ -47,7 +47,7 @@ impl Command for LintCommand {
         "lint issues"
     }
 
-    fn config(&self) -> &Self::ConfigType {
+    fn config(&self) -> &dyn ConfigPattern {
         &self.config
     }
 

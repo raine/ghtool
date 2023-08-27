@@ -19,14 +19,16 @@ impl ConfigPattern for BuildConfig {
     }
 }
 
+#[derive(Clone)]
 pub struct BuildCommand {
     config: BuildConfig,
 }
 
 impl BuildCommand {
-    pub fn from_repo_config(repo_config: RepoConfig) -> Result<Self> {
+    pub fn from_repo_config(repo_config: &RepoConfig) -> Result<Self> {
         let build_config = repo_config
             .build
+            .clone()
             .ok_or_else(|| eyre::eyre!("Error: no build section found in .ghtool.toml"))?;
 
         Ok(Self {
@@ -37,8 +39,6 @@ impl BuildCommand {
 
 #[async_trait]
 impl Command for BuildCommand {
-    type ConfigType = BuildConfig;
-
     fn name(&self) -> &'static str {
         "build"
     }
@@ -47,7 +47,7 @@ impl Command for BuildCommand {
         "build errors"
     }
 
-    fn config(&self) -> &Self::ConfigType {
+    fn config(&self) -> &dyn ConfigPattern {
         &self.config
     }
 

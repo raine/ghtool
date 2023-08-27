@@ -43,6 +43,9 @@ pub enum Commands {
         files: bool,
     },
 
+    /// Wait for checks to complete and run all test, lint and build together
+    All {},
+
     /// Authenticate ghtool with GitHub API
     Login {},
 

@@ -123,13 +123,20 @@ impl GithubClient {
         cache::memoize(key, || self.get_pr_for_branch(owner, repo, branch)).await
     }
 
-    pub async fn get_pr_status_checks(&self, id: &cynic::Id) -> Result<Vec<SimpleCheckRun>> {
+    pub async fn get_pr_status_checks(
+        &self,
+        id: &cynic::Id,
+        with_spinner: bool,
+    ) -> Result<Vec<SimpleCheckRun>> {
         info!(?id, "getting checks for pr");
         let query = PullRequestStatusChecks::build(PullRequestStatusChecksVariables { id });
 
-        let pr_checks = self
-            .run_with_spinner("Fetching checks...".into(), self.run_graphql_query(query))
-            .await?;
+        let pr_checks = if with_spinner {
+            self.run_with_spinner("Fetching checks...".into(), self.run_graphql_query(query))
+                .await?
+        } else {
+            self.run_graphql_query(query).await?
+        };
 
         match pr_checks.node {
             Some(Node::PullRequest(pull_request)) => {
