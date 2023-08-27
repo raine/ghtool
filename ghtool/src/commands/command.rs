@@ -145,13 +145,13 @@ pub async fn handle_all_command(
     let mut all_failed_check_runs = Vec::new();
     let mut check_run_command_map: HashMap<CheckRunId, CommandType> = HashMap::new();
     let mut command_check_run_map: HashMap<CommandType, Vec<CheckRunId>> = HashMap::new();
-    let test_command = TestCommand::from_repo_config(repo_config)?;
-    let build_command = BuildCommand::from_repo_config(repo_config)?;
-    let lint_command = LintCommand::from_repo_config(repo_config)?;
-    let mut commands: HashMap<CommandType, Arc<dyn Command + Send + Sync>> = HashMap::new();
-    commands.insert(CommandType::Test, Arc::new(test_command));
-    commands.insert(CommandType::Build, Arc::new(build_command));
-    commands.insert(CommandType::Lint, Arc::new(lint_command));
+
+    let command_types = [CommandType::Test, CommandType::Build, CommandType::Lint];
+    let commands: Result<HashMap<CommandType, Arc<dyn Command + Send + Sync>>> = command_types
+        .iter()
+        .map(|&command_type| Ok((command_type, command_from_type(command_type, repo_config)?)))
+        .collect();
+    let commands = commands?;
 
     for (command_type, command) in &commands {
         add_command_info(
@@ -203,6 +203,18 @@ pub async fn handle_all_command(
     }
 
     Ok(())
+}
+
+fn command_from_type(
+    command_type: CommandType,
+    repo_config: &RepoConfig,
+) -> Result<Arc<dyn Command + Send + Sync>> {
+    let command: Box<dyn Command + Send + Sync> = match command_type {
+        CommandType::Test => Box::new(TestCommand::from_repo_config(repo_config)?),
+        CommandType::Build => Box::new(BuildCommand::from_repo_config(repo_config)?),
+        CommandType::Lint => Box::new(LintCommand::from_repo_config(repo_config)?),
+    };
+    Ok(Arc::from(command))
 }
 
 fn print_errored_files(all_checks_errors: Vec<Vec<CheckError>>) {
