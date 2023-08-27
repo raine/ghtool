@@ -3,7 +3,6 @@ use std::{
     sync::Arc,
 };
 
-use async_trait::async_trait;
 use eyre::Result;
 use futures::future::try_join_all;
 use regex::Regex;
@@ -32,7 +31,6 @@ pub struct CheckError {
     pub lines: Vec<String>,
 }
 
-#[async_trait]
 pub trait Command: Sync + Send {
     fn name(&self) -> &'static str;
     fn config(&self) -> &dyn ConfigPattern;

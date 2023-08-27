@@ -1032,7 +1032,6 @@ dependencies = [
 name = "ghtool"
 version = "0.7.2"
 dependencies = [
- "async-trait",
  "bytes",
  "chrono",
  "clap",

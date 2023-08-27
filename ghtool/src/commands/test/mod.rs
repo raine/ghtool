@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use eyre::Result;
 use regex::Regex;
 
@@ -37,7 +36,6 @@ impl TestCommand {
     }
 }
 
-#[async_trait]
 impl Command for TestCommand {
     fn name(&self) -> &'static str {
         "test"
