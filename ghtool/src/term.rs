@@ -1,3 +1,7 @@
+use std::io::{self, Write};
+
+use eyre::Result;
+
 use crate::github;
 
 pub fn bold(text: &str) -> String {
@@ -57,4 +61,19 @@ pub fn print_some_checks_in_progress(command_name: &str) {
         bold("⚠"),
         command_name
     );
+}
+
+pub fn read_stdin() -> Result<String> {
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    Ok(input.trim().to_string())
+}
+
+pub fn prompt_for_user_to_continue(prompt_message: &str) -> io::Result<()> {
+    print!("{}", prompt_message);
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    Ok(())
 }

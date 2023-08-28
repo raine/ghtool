@@ -9,7 +9,7 @@ build errors. It provides aggregated view of these issues without having to
 manually go through logs or GitHub's user interface. This is especially helpful
 in large codebases where tests are distributed across multiple jobs.
 
-<img width="75%" src="https://github.com/raine/ghtool/assets/11027/1c558ae1-7545-4891-bcd5-1a2c37b1b927" />
+<img width="80%" src="https://github.com/raine/ghtool/assets/11027/1c558ae1-7545-4891-bcd5-1a2c37b1b927" />
 
 See the [demo](#demo).
 
@@ -30,14 +30,23 @@ cargo install ghtool
 
 ## Setup
 
-`ghtool` requires a GitHub access token to access the GitHub API. The
-token is stored in the system keychain. The token is only used to access the
-GitHub API and is not used for any other purpose.
+`ghtool` requires a GitHub access token to access the GitHub API. The token is
+stored in the system keychain. The token is strictly used by `ghtool` for
+accessing the GitHub API to accomplish the tasks it's designed for. The token
+is not used for any other purpose.
 
-To authenticate `ghtool` with GitHub API, run:
+To authenticate `ghtool` with GitHub API using OAuth device flow, inside a
+repository run:
 
 ```sh
 ght login
+```
+
+Alternatively, you may provide a [personal access token][personal-access-token]
+with `repo` scope using `--stdin` parameter.
+
+```sh
+pbpaste | ght login --stdin
 ```
 
 For details on why the `repo` scope is needed: [On required permissions](#on-required-permissions)
@@ -180,19 +189,17 @@ https://github.com/raine/ghtool/assets/11027/13a012ac-a854-48a0-b514-9fcbd02c02a
 The tool currently uses Github's OAuth device flow to authenticate users. To
 access workflow job logs through OAuth, which lacks fine-grained permissions,
 [the repo scope is required][job-logs-docs], granting scary amount of
-permissions.
-
-Github App auth flow enables more fine grained permissions, but doesn't seem to
-work<sup>1</sup> in the case where someone else than you owns the repository
-that is queried. Incidentally, the official GitHub CLI, which I used as
-reference, also uses OAuth flow with the `repo` scope and more
+permissions. Incidentally, the official GitHub CLI, which I used as reference,
+also uses OAuth flow with the `repo` scope and more
 ([screenshot][gh-auth-logs]).
 
-Feel free to reach out through issues if you know how to improve this.
-
-<sup>1</sup> This GraphQL query returns 200 but can't find the private repository: https://github.com/raine/ghtool/blob/master/ghtool/src/github/pull_request_for_branch.graphql
+Any ideas on how to improve this are appreciated.
 
 ## Changelog
+
+## Unreleased
+
+- Added a way to login with a provided access token.
 
 ## 0.8.0 (27.08.2023)
 
@@ -212,3 +219,4 @@ Feel free to reach out through issues if you know how to improve this.
 [build-badge]: https://github.com/raine/ghtool/actions/workflows/rust.yml/badge.svg
 [job-logs-docs]: https://docs.github.com/en/rest/actions/workflow-jobs?apiVersion=2022-11-28#download-job-logs-for-a-workflow-run
 [gh-auth-logs]: https://github.com/raine/ghtool/assets/11027/c5b86639-07d0-4737-a2bc-519ead2f3b9f
+[personal-access-token]: https://github.com/settings/tokens

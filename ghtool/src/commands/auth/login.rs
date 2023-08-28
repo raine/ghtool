@@ -1,22 +1,36 @@
-use std::{
-    io::{self, Write},
-    time::Duration,
-};
+use std::time::Duration;
 
-use eyre::{eyre, Result};
+use eyre::{eyre, Context, Result};
 use indicatif::ProgressBar;
 use tracing::info;
 
 use crate::{
     github::{AccessToken, AccessTokenResponse, CodeResponse, GithubAuthClient},
     spinner::make_spinner_style,
-    term::bold,
+    term::{bold, prompt_for_user_to_continue, read_stdin},
     token_store,
 };
 
-pub async fn login(hostname: &str) -> Result<()> {
+pub async fn login(hostname: &str, use_stdin_token: bool) -> Result<()> {
+    let access_token = if use_stdin_token {
+        read_stdin()?
+    } else {
+        acquire_token_from_github().await?
+    };
+
+    token_store::set_token(hostname, &access_token)
+        .map_err(|e| eyre!("Failed to store token: {}", e))?;
+
+    println!("Logged in to {} account", bold(hostname));
+    Ok(())
+}
+
+async fn acquire_token_from_github() -> Result<String> {
     let auth_client = GithubAuthClient::new()?;
-    let code_response = auth_client.get_device_code().await?;
+    let code_response = auth_client
+        .get_device_code()
+        .await
+        .wrap_err("Failed to get device code")?;
 
     println!(
         "First copy your one-time code: {}",
@@ -29,23 +43,9 @@ pub async fn login(hostname: &str) -> Result<()> {
     open::that(&code_response.verification_uri)?;
 
     let pb = create_progress_bar();
-    let access_token = await_authorization(&auth_client, &code_response).await?;
+    let token = await_authorization(&auth_client, &code_response).await?;
     pb.finish_and_clear();
-
-    token_store::set_token(hostname, &access_token.access_token)
-        .map_err(|e| eyre!("Failed to store token: {}", e))?;
-
-    println!("Logged in to {} account", bold(hostname));
-    Ok(())
-}
-
-fn prompt_for_user_to_continue(prompt_message: &str) -> io::Result<()> {
-    print!("{}", prompt_message);
-    io::stdout().flush()?;
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-    Ok(())
+    Ok(token.access_token)
 }
 
 fn create_progress_bar() -> ProgressBar {

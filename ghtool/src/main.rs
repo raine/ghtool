@@ -33,8 +33,8 @@ async fn run() -> Result<()> {
             handle_command(command, &repo, &branch, *files).await
         }
         Some(Commands::All {}) => handle_all_command(&repo_config, &repo, &branch).await,
-        Some(Commands::Login {}) => {
-            auth::login(&repo.hostname).await?;
+        Some(Commands::Login { stdin }) => {
+            auth::login(&repo.hostname, *stdin).await?;
             Ok(())
         }
         Some(Commands::Logout {}) => {

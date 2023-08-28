@@ -47,7 +47,11 @@ pub enum Commands {
     All {},
 
     /// Authenticate ghtool with GitHub API
-    Login {},
+    Login {
+        /// Use stdin to pass a token that will be saved to system key store
+        #[clap(long, short)]
+        stdin: bool,
+    },
 
     /// Deauthenticate ghtool with GitHub API
     Logout {},
