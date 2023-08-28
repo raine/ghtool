@@ -2,9 +2,8 @@ use cynic::Id;
 use eyre::Result;
 use indicatif::{MultiProgress, ProgressBar};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tokio::sync::Mutex;
 
 use crate::spinner::{make_job_completed_spinner, make_job_failed_spinner, make_job_spinner};
 use crate::term::{bold, exit_with_error};
@@ -86,7 +85,7 @@ async fn get_or_insert_spinner(
     m: &MultiProgress,
     max_check_name_length: usize,
 ) -> ProgressBar {
-    let mut spinners = spinners.lock().await;
+    let mut spinners = spinners.lock().expect("Failed to lock spinners");
     spinners
         .entry(check_run.id)
         .or_insert_with(|| add_spinner(check_run, m, max_check_name_length))
