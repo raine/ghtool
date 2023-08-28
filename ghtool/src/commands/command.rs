@@ -73,7 +73,8 @@ pub async fn handle_command<T: Command>(
     let client = GithubClient::new(&token)?;
     let pull_request = client
         .get_pr_for_branch_memoized(&repo.owner, &repo.name, branch)
-        .await?;
+        .await?
+        .ok_or_else(|| eyre::eyre!("No pull request found for branch {}", bold(branch)))?;
 
     let all_check_runs = client.get_pr_status_checks(&pull_request.id, true).await?;
     let (failed_check_runs, any_in_progress, no_matching_runs) =
@@ -137,7 +138,8 @@ pub async fn handle_all_command(
     let client = GithubClient::new(&token)?;
     let pull_request = client
         .get_pr_for_branch_memoized(&repo.owner, &repo.name, branch)
-        .await?;
+        .await?
+        .ok_or_else(|| eyre::eyre!("No pull request found for branch {}", bold(branch)))?;
 
     let all_check_runs = wait_for_pr_checks(&client, pull_request.id).await?;
     let mut all_failed_check_runs = Vec::new();

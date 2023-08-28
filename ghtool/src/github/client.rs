@@ -92,7 +92,7 @@ impl GithubClient {
         owner: &str,
         repo: &str,
         branch: &str,
-    ) -> Result<SimplePullRequest> {
+    ) -> Result<Option<SimplePullRequest>> {
         info!(?owner, ?repo, ?branch, "getting pr for branch");
         let query = PullRequestForBranch::build(PullRequestForBranchVariables {
             head_ref_name: branch,
@@ -118,7 +118,7 @@ impl GithubClient {
         owner: &str,
         repo: &str,
         branch: &str,
-    ) -> Result<SimplePullRequest> {
+    ) -> Result<Option<SimplePullRequest>> {
         let key = format!("pr_for_branch_{}_{}", repo, branch);
         cache::memoize(key, || self.get_pr_for_branch(owner, repo, branch)).await
     }

@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use super::SimplePullRequest;
 
-pub fn extract_pull_request(pr_for_branch: PullRequestForBranch) -> SimplePullRequest {
+pub fn extract_pull_request(pr_for_branch: PullRequestForBranch) -> Option<SimplePullRequest> {
     pr_for_branch
         .repository
         .expect("no repository in response")
@@ -14,7 +14,6 @@ pub fn extract_pull_request(pr_for_branch: PullRequestForBranch) -> SimplePullRe
         .next()
         .flatten()
         .map(SimplePullRequest::from)
-        .expect("no pull requests in response")
 }
 
 // Below is generated with https://generator.cynic-rs.dev using ./pull_request_for_branch.graphql,
