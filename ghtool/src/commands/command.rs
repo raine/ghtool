@@ -287,7 +287,7 @@ async fn process_failed_check_runs(
 fn get_token(hostname: &str) -> Result<String> {
     // In development, macOS is constantly asking for password when token store is accessed with a
     // new binary
-    if let Ok(token) = std::env::var("TOKEN") {
+    if let Ok(token) = std::env::var("GH_TOKEN") {
         return Ok(token);
     }
 
