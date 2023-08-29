@@ -10,6 +10,7 @@ use tokio::task::JoinHandle;
 use tracing::info;
 
 use crate::{
+    cli::Cli,
     commands::{BuildCommand, LintCommand, TestCommand},
     git::Repository,
     github::{
@@ -17,6 +18,7 @@ use crate::{
         SimpleCheckRun,
     },
     repo_config::RepoConfig,
+    setup::get_repo_config,
     term::{bold, print_all_checks_green, print_check_run_header, print_some_checks_in_progress},
     token_store,
 };
@@ -39,7 +41,7 @@ pub trait Command: Sync + Send {
 }
 
 fn filter_check_runs(
-    command: &dyn Command, // Change from a generic to a trait object
+    command: &dyn Command,
     check_runs: &[SimpleCheckRun],
 ) -> (Vec<SimpleCheckRun>, bool, bool) {
     let mut failed_check_runs = Vec::new();
@@ -129,17 +131,14 @@ enum CommandType {
     Build,
 }
 
-pub async fn handle_all_command(
-    repo_config: &RepoConfig,
-    repo: &Repository,
-    branch: &str,
-) -> Result<()> {
+pub async fn handle_all_command(cli: &Cli) -> Result<()> {
+    let (repo_config, repo, branch) = get_repo_config(cli)?;
     let token = get_token(&repo.hostname)?;
     let client = GithubClient::new(&token)?;
     let pull_request = client
-        .get_pr_for_branch_memoized(&repo.owner, &repo.name, branch)
+        .get_pr_for_branch_memoized(&repo.owner, &repo.name, &branch)
         .await?
-        .ok_or_else(|| eyre::eyre!("No pull request found for branch {}", bold(branch)))?;
+        .ok_or_else(|| eyre::eyre!("No pull request found for branch {}", bold(&branch)))?;
 
     let all_check_runs = wait_for_pr_checks(&client, pull_request.id).await?;
     let mut all_failed_check_runs = Vec::new();
@@ -149,7 +148,7 @@ pub async fn handle_all_command(
     let command_types = [CommandType::Test, CommandType::Build, CommandType::Lint];
     let commands: Result<HashMap<CommandType, Arc<dyn Command + Send + Sync>>> = command_types
         .iter()
-        .map(|&command_type| Ok((command_type, command_from_type(command_type, repo_config)?)))
+        .map(|&command_type| Ok((command_type, command_from_type(command_type, &repo_config)?)))
         .collect();
     let commands = commands?;
 
@@ -166,7 +165,7 @@ pub async fn handle_all_command(
 
     let mut all_check_errors = process_failed_check_runs(
         &client,
-        repo,
+        &repo,
         &commands,
         &mut check_run_command_map,
         &all_failed_check_runs,

@@ -15,7 +15,9 @@ use crate::{
     token_store::{self, get_token},
 };
 
-pub async fn login(hostname: &str, use_stdin_token: bool) -> Result<()> {
+pub async fn login(use_stdin_token: bool) -> Result<()> {
+    // Assume hostname github.com for now
+    let hostname = "github.com";
     if let Some(current_user) = validate_existing_token(hostname).await? {
         println!("Already logged in as {}", bold(&current_user.viewer.login));
         println!("To log out, run {}", bold("ght logout"));

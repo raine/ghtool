@@ -16,7 +16,7 @@ use crate::{
     repo_config::{read_repo_config, read_repo_config_from_path, RepoConfig},
 };
 
-pub fn setup() -> Result<(Cli, Repository, String, RepoConfig)> {
+pub fn setup() -> Result<Cli> {
     let cli = Cli::parse();
 
     if cli.verbose {
@@ -24,8 +24,7 @@ pub fn setup() -> Result<(Cli, Repository, String, RepoConfig)> {
     }
 
     setup_env()?;
-    let (repo_config, repo, branch) = setup_configs(&cli)?;
-    Ok((cli, repo, branch, repo_config))
+    Ok(cli)
 }
 
 fn setup_env() -> Result<()> {
@@ -43,16 +42,16 @@ fn setup_env() -> Result<()> {
     Ok(())
 }
 
-fn setup_configs(cli: &Cli) -> Result<(RepoConfig, Repository, String)> {
+pub fn get_repo_config(cli: &Cli) -> Result<(RepoConfig, Repository, String)> {
     let env_repo_config = env::var("REPO_CONFIG")
         .map(|p| Path::new(&p).to_path_buf())
         .map_err(|e| eyre::eyre!("Error getting repo config path: {}", e))
         .and_then(|p| read_repo_config_from_path(&p));
-    let env_repo = env::var("REPO").map(|s| parse_repository_from_github(&s).unwrap());
+    let repo_from_env = env::var("REPO").map(|s| parse_repository_from_github(&s).unwrap());
 
     // The env variables are meant to help with development. I opted to not put them as cli
     // arguments as they would make --help more noisy.
-    let (repo_config, repo, branch) = match (env_repo_config, env_repo) {
+    let (repo_config, repo, branch) = match (env_repo_config, repo_from_env) {
         (Ok(repo_config), Ok(repo)) => {
             let branch = cli.branch.clone().ok_or_else(|| {
                 eyre::eyre!("Error: --branch must be given when using REPO env variable")

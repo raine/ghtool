@@ -35,8 +35,7 @@ stored in the system keychain. The token is strictly used by `ghtool` for
 accessing the GitHub API to accomplish the tasks it's designed for. The token
 is not used for any other purpose.
 
-To authenticate `ghtool` with GitHub API using OAuth device flow, inside a
-repository run:
+To authenticate `ghtool` with GitHub API's OAuth flow, run:
 
 ```sh
 ght login

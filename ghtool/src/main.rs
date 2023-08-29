@@ -1,8 +1,11 @@
 use clap::Parser;
 use cli::Commands;
-use commands::{auth, handle_all_command, handle_command, BuildCommand, LintCommand, TestCommand};
+use commands::{
+    auth, handle_all_command, handle_command, BuildCommand, Command, LintCommand, TestCommand,
+};
 use eyre::Result;
-use setup::setup;
+use repo_config::RepoConfig;
+use setup::{get_repo_config, setup};
 use term::exit_with_error;
 
 mod cache;
@@ -17,28 +20,25 @@ mod term;
 mod token_store;
 
 async fn run() -> Result<()> {
-    let (cli, repo, branch, repo_config) = setup()?;
+    let cli = setup()?;
 
     match &cli.command {
         Some(Commands::Test { files }) => {
-            let command = TestCommand::from_repo_config(&repo_config)?;
-            handle_command(command, &repo, &branch, *files).await
+            handle_standard_command(&cli, TestCommand::from_repo_config, *files).await
         }
         Some(Commands::Lint { files }) => {
-            let command = LintCommand::from_repo_config(&repo_config)?;
-            handle_command(command, &repo, &branch, *files).await
+            handle_standard_command(&cli, LintCommand::from_repo_config, *files).await
         }
         Some(Commands::Build { files }) => {
-            let command = BuildCommand::from_repo_config(&repo_config)?;
-            handle_command(command, &repo, &branch, *files).await
+            handle_standard_command(&cli, BuildCommand::from_repo_config, *files).await
         }
-        Some(Commands::All {}) => handle_all_command(&repo_config, &repo, &branch).await,
+        Some(Commands::All {}) => handle_all_command(&cli).await,
         Some(Commands::Login { stdin }) => {
-            auth::login(&repo.hostname, *stdin).await?;
+            auth::login(*stdin).await?;
             Ok(())
         }
         Some(Commands::Logout {}) => {
-            auth::logout(&repo.hostname)?;
+            auth::logout()?;
             Ok(())
         }
         None => {
@@ -48,6 +48,16 @@ async fn run() -> Result<()> {
             Ok(())
         }
     }
+}
+
+async fn handle_standard_command<C: Command>(
+    cli: &cli::Cli,
+    command_ctor: fn(&RepoConfig) -> Result<C>,
+    files: bool,
+) -> Result<()> {
+    let (repo_config, repo, branch) = get_repo_config(cli)?;
+    let command = command_ctor(&repo_config)?;
+    handle_command(command, &repo, &branch, files).await
 }
 
 #[tokio::main]
