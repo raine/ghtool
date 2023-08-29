@@ -1062,6 +1062,7 @@ dependencies = [
  "sled",
  "strip-ansi-escapes",
  "term_size",
+ "thiserror",
  "tokio",
  "toml",
  "tracing",

@@ -1,17 +1,27 @@
 use std::time::Duration;
 
 use eyre::{eyre, Context, Result};
+use http::StatusCode;
 use indicatif::ProgressBar;
 use tracing::info;
 
 use crate::{
-    github::{AccessToken, AccessTokenResponse, CodeResponse, GithubAuthClient},
+    github::{
+        AccessToken, AccessTokenResponse, CodeResponse, CurrentUser, GithubApiError,
+        GithubAuthClient, GithubClient,
+    },
     spinner::make_spinner_style,
     term::{bold, prompt_for_user_to_continue, read_stdin},
-    token_store,
+    token_store::{self, get_token},
 };
 
 pub async fn login(hostname: &str, use_stdin_token: bool) -> Result<()> {
+    if let Some(current_user) = validate_existing_token(hostname).await? {
+        println!("Already logged in as {}", bold(&current_user.viewer.login));
+        println!("To log out, run {}", bold("ght logout"));
+        return Ok(());
+    }
+
     let access_token = if use_stdin_token {
         read_stdin()?
     } else {
@@ -19,10 +29,33 @@ pub async fn login(hostname: &str, use_stdin_token: bool) -> Result<()> {
     };
 
     token_store::set_token(hostname, &access_token)
-        .map_err(|e| eyre!("Failed to store token: {}", e))?;
+        .map_err(|e| eyre!(e).wrap_err("Failed to store token"))?;
 
     println!("Logged in to {} account", bold(hostname));
     Ok(())
+}
+
+async fn validate_existing_token(hostname: &str) -> Result<Option<CurrentUser>> {
+    let token = match get_token(hostname) {
+        Ok(t) => t,
+        Err(keyring::Error::NoEntry) => {
+            info!("No token stored, continuing");
+            return Ok(None);
+        }
+        Err(err) => {
+            return Err(eyre!(err).wrap_err("Failed to get token from keyring"));
+        }
+    };
+
+    let client = GithubClient::new(&token)?;
+    match client.get_current_user().await {
+        Ok(current_user) => Ok(Some(current_user)),
+        Err(GithubApiError::ErrorResponse(StatusCode::UNAUTHORIZED, _)) => {
+            info!("Token is invalid, continuing");
+            Ok(None)
+        }
+        Err(err) => Err(eyre!(err).wrap_err("Failed to get current user")),
+    }
 }
 
 async fn acquire_token_from_github() -> Result<String> {

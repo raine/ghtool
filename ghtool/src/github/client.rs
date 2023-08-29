@@ -1,6 +1,14 @@
+// Adding new graphql queries:
+//
+// 1. Open https://generator.cynic-rs.dev/ with github schema copied.
+// 2. Paste schema.
+// 3. Insert graphql query to query builder.
+// 4. On the right, copy the generated Rust and create a new file with it.
+
 use std::borrow::Cow;
 use std::time::Duration;
 
+use cynic::http::CynicReqwestError;
 use cynic::QueryBuilder;
 use eyre::Result;
 use futures::{Future, StreamExt};
@@ -8,6 +16,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::header::HeaderMap;
 use tracing::info;
 
+use crate::github::current_user::CurrentUser;
 use crate::spinner::make_spinner_style;
 use crate::{
     cache,
@@ -22,6 +31,21 @@ use crate::{
 };
 
 use super::{types::SimpleCheckRun, SimplePullRequest};
+
+#[derive(thiserror::Error, Debug)]
+pub enum GithubApiError {
+    /// An error from reqwest when making an HTTP request.
+    #[error("Error making HTTP request: {0}")]
+    ReqwestError(#[from] reqwest::Error),
+
+    /// An error response from the server with the given status code and body.
+    #[error("Server returned {0}: {1}")]
+    ErrorResponse(reqwest::StatusCode, String),
+
+    // No data in response
+    #[error("No data in response")]
+    NoDataInResponse,
+}
 
 pub struct GithubClient {
     client: reqwest::Client,
@@ -56,9 +80,13 @@ impl GithubClient {
             .map_err(|e| eyre::eyre!("Failed to build client: {}", e))
     }
 
-    async fn run_with_spinner<F, T>(&self, message: Cow<'static, str>, future: F) -> Result<T>
+    async fn run_with_spinner<F, T>(
+        &self,
+        message: Cow<'static, str>,
+        future: F,
+    ) -> Result<T, GithubApiError>
     where
-        F: Future<Output = Result<T>>,
+        F: Future<Output = Result<T, GithubApiError>>,
     {
         let pb = ProgressBar::new_spinner();
         pb.enable_steady_tick(Duration::from_millis(100));
@@ -70,21 +98,28 @@ impl GithubClient {
         result
     }
 
-    pub async fn run_graphql_query<T, K>(&self, operation: cynic::Operation<T, K>) -> Result<T>
+    pub async fn run_graphql_query<T, K>(
+        &self,
+        operation: cynic::Operation<T, K>,
+    ) -> Result<T, GithubApiError>
     where
         T: serde::de::DeserializeOwned + 'static,
         K: serde::Serialize,
     {
         use cynic::http::ReqwestExt;
-        let response = self
-            .client
-            .post("https://api.github.com/graphql")
-            .run_graphql(operation)
-            .await?;
+        let graphql_endpoint = format!("{}/graphql", GITHUB_BASE_URI);
 
-        response
-            .data
-            .ok_or_else(|| eyre::eyre!("no data in response"))
+        self.client
+            .post(graphql_endpoint)
+            .run_graphql(operation)
+            .await
+            .map_err(|e| match e {
+                CynicReqwestError::ReqwestError(err) => GithubApiError::ReqwestError(err),
+                CynicReqwestError::ErrorResponse(status, body) => {
+                    GithubApiError::ErrorResponse(status, body)
+                }
+            })
+            .and_then(|response| response.data.ok_or(GithubApiError::NoDataInResponse))
     }
 
     pub async fn get_pr_for_branch(
@@ -93,7 +128,7 @@ impl GithubClient {
         repo: &str,
         branch: &str,
     ) -> Result<Option<SimplePullRequest>> {
-        info!(?owner, ?repo, ?branch, "getting pr for branch");
+        info!(?owner, ?repo, ?branch, "Getting pr for branch");
         let query = PullRequestForBranch::build(PullRequestForBranchVariables {
             head_ref_name: branch,
             owner,
@@ -108,7 +143,7 @@ impl GithubClient {
             )
             .await?;
 
-        info!(?pr_for_branch, "got pr");
+        info!(?pr_for_branch, "Got pr");
         let pr = extract_pull_request(pr_for_branch);
         Ok(pr)
     }
@@ -128,7 +163,7 @@ impl GithubClient {
         id: &cynic::Id,
         with_spinner: bool,
     ) -> Result<Vec<SimpleCheckRun>> {
-        info!(?id, "getting checks for pr");
+        info!(?id, "Getting checks for pr");
         let query = PullRequestStatusChecks::build(PullRequestStatusChecksVariables { id });
 
         let pr_checks = if with_spinner {
@@ -155,7 +190,7 @@ impl GithubClient {
         job_id: u64,
         progress_bar: &ProgressBar,
     ) -> Result<bytes::Bytes> {
-        info!(?owner, ?repo, ?job_id, "getting job logs");
+        info!(?owner, ?repo, ?job_id, "Getting job logs");
 
         let mut got_first_chunk = false;
         let url = format!("{GITHUB_BASE_URI}/repos/{owner}/{repo}/actions/jobs/{job_id}/logs",);
@@ -181,5 +216,19 @@ impl GithubClient {
         }
         progress_bar.finish_and_clear();
         Ok(result.freeze())
+    }
+
+    pub async fn get_current_user(&self) -> Result<CurrentUser, GithubApiError> {
+        info!("Getting current user");
+        let query = CurrentUser::build(());
+        let current_user = self
+            .run_with_spinner(
+                "Checking login status...".into(),
+                self.run_graphql_query(query),
+            )
+            .await?;
+
+        info!(?current_user, "Got current user");
+        Ok(current_user)
     }
 }

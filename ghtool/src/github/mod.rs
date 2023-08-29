@@ -6,15 +6,17 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 pub use self::auth_client::{AccessToken, AccessTokenResponse, CodeResponse, GithubAuthClient};
-pub use self::client::GithubClient;
+pub use self::client::{GithubApiError, GithubClient};
 use crate::{git::Repository, spinner::make_spinner_style};
 
+pub use current_user::CurrentUser;
 pub use pull_request_status_checks::CheckConclusionState;
 pub use types::*;
 pub use wait_for_pr_checks::*;
 
 mod auth_client;
 mod client;
+mod current_user;
 mod pull_request_for_branch;
 mod pull_request_status_checks;
 mod types;
