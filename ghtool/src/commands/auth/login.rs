@@ -31,7 +31,14 @@ pub async fn login(hostname: &str, use_stdin_token: bool) -> Result<()> {
     token_store::set_token(hostname, &access_token)
         .map_err(|e| eyre!(e).wrap_err("Failed to store token"))?;
 
-    println!("Logged in to {} account", bold(hostname));
+    let client = GithubClient::new(&access_token)?;
+    let current_user = client.get_current_user().await?;
+
+    println!(
+        "Logged in to {} as {}",
+        hostname,
+        bold(&current_user.viewer.login)
+    );
     Ok(())
 }
 
