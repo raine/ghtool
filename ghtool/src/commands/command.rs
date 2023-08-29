@@ -102,11 +102,6 @@ pub async fn handle_command(
         return Ok(());
     }
 
-    let mut check_run_command_map: HashMap<CheckRunId, CommandType> = HashMap::new();
-    for check_run in &failed_check_runs {
-        check_run_command_map.insert(check_run.id, command_type);
-    }
-
     let check_run_errors = process_failed_check_runs(
         &client,
         &repo,
