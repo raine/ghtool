@@ -1,11 +1,8 @@
 use clap::Parser;
 use cli::Commands;
-use commands::{
-    auth, handle_all_command, handle_command, BuildCommand, Command, LintCommand, TestCommand,
-};
+use commands::{auth, handle_all_command, handle_command, CommandType};
 use eyre::Result;
-use repo_config::RepoConfig;
-use setup::{get_repo_config, setup};
+use setup::setup;
 use term::exit_with_error;
 
 mod cache;
@@ -23,15 +20,9 @@ async fn run() -> Result<()> {
     let cli = setup()?;
 
     match &cli.command {
-        Some(Commands::Test { files }) => {
-            handle_standard_command(&cli, TestCommand::from_repo_config, *files).await
-        }
-        Some(Commands::Lint { files }) => {
-            handle_standard_command(&cli, LintCommand::from_repo_config, *files).await
-        }
-        Some(Commands::Build { files }) => {
-            handle_standard_command(&cli, BuildCommand::from_repo_config, *files).await
-        }
+        Some(Commands::Test { files }) => handle_command(CommandType::Test, &cli, *files).await,
+        Some(Commands::Lint { files }) => handle_command(CommandType::Lint, &cli, *files).await,
+        Some(Commands::Build { files }) => handle_command(CommandType::Build, &cli, *files).await,
         Some(Commands::All {}) => handle_all_command(&cli).await,
         Some(Commands::Login { stdin }) => {
             auth::login(*stdin).await?;
@@ -48,16 +39,6 @@ async fn run() -> Result<()> {
             Ok(())
         }
     }
-}
-
-async fn handle_standard_command<C: Command>(
-    cli: &cli::Cli,
-    command_ctor: fn(&RepoConfig) -> Result<C>,
-    files: bool,
-) -> Result<()> {
-    let (repo_config, repo, branch) = get_repo_config(cli)?;
-    let command = command_ctor(&repo_config)?;
-    handle_command(command, &repo, &branch, files).await
 }
 
 #[tokio::main]

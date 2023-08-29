@@ -65,22 +65,23 @@ fn filter_check_runs(
     (failed_check_runs, any_in_progress, no_matching_runs)
 }
 
-pub async fn handle_command<T: Command>(
-    command: T,
-    repo: &Repository,
-    branch: &str,
+pub async fn handle_command(
+    command_type: CommandType,
+    cli: &Cli,
     show_files_only: bool,
 ) -> Result<()> {
+    let (repo_config, repo, branch) = get_repo_config(cli)?;
+    let command = command_from_type(command_type, &repo_config)?;
     let token = get_token(&repo.hostname)?;
     let client = GithubClient::new(&token)?;
     let pull_request = client
-        .get_pr_for_branch_memoized(&repo.owner, &repo.name, branch)
+        .get_pr_for_branch_memoized(&repo.owner, &repo.name, &branch)
         .await?
-        .ok_or_else(|| eyre::eyre!("No pull request found for branch {}", bold(branch)))?;
+        .ok_or_else(|| eyre::eyre!("No pull request found for branch {}", bold(&branch)))?;
 
     let all_check_runs = client.get_pr_status_checks(&pull_request.id, true).await?;
     let (failed_check_runs, any_in_progress, no_matching_runs) =
-        filter_check_runs(&command, &all_check_runs);
+        filter_check_runs(&*command, &all_check_runs);
     info!(?failed_check_runs, "got failed check runs");
 
     if no_matching_runs {
@@ -101,15 +102,20 @@ pub async fn handle_command<T: Command>(
         return Ok(());
     }
 
-    let check_run_logs = fetch_check_run_logs(&client, repo, &failed_check_runs).await?;
-    let mut all_checks_errors = Vec::new();
-
-    for (_check_run_id, log_bytes) in check_run_logs {
-        let log = String::from_utf8_lossy(&log_bytes);
-        let check_errors = command.parse_log(&log)?;
-        all_checks_errors.push(check_errors);
+    let mut check_run_command_map: HashMap<CheckRunId, CommandType> = HashMap::new();
+    for check_run in &failed_check_runs {
+        check_run_command_map.insert(check_run.id, command_type);
     }
 
+    let check_run_errors = process_failed_check_runs(
+        &client,
+        &repo,
+        CommandMode::Single(command.clone()),
+        &failed_check_runs,
+    )
+    .await?;
+
+    let all_checks_errors = check_run_errors.into_values().collect::<Vec<_>>();
     if all_checks_errors.iter().all(|s| s.is_empty()) {
         eprintln!("No {} found in log output", command.check_error_plural());
         return Ok(());
@@ -125,7 +131,7 @@ pub async fn handle_command<T: Command>(
 }
 
 #[derive(Eq, Hash, PartialEq, Clone, Copy, Debug)]
-enum CommandType {
+pub enum CommandType {
     Test,
     Lint,
     Build,
@@ -166,8 +172,10 @@ pub async fn handle_all_command(cli: &Cli) -> Result<()> {
     let mut all_check_errors = process_failed_check_runs(
         &client,
         &repo,
-        &commands,
-        &mut check_run_command_map,
+        CommandMode::Multiple {
+            command_map: commands,
+            check_run_command_map,
+        },
         &all_failed_check_runs,
     )
     .await?;
@@ -243,13 +251,21 @@ fn print_errors(failed_check_runs: &[SimpleCheckRun], all_checks_errors: Vec<Vec
 
 type CheckRunId = u64;
 
+enum CommandMode {
+    Single(Arc<dyn Command + Send + Sync>),
+    Multiple {
+        // Used to provide command's parse log function
+        command_map: HashMap<CommandType, Arc<dyn Command + Send + Sync>>,
+        // Used to determine how check run's logs should be parsed
+        check_run_command_map: HashMap<CheckRunId, CommandType>,
+    },
+}
+
 /// Get logs for each failed check run, and parse them into a map of command type to check errors
 async fn process_failed_check_runs(
     client: &GithubClient,
     repo: &Repository,
-    commands: &HashMap<CommandType, Arc<dyn Command + Send + Sync>>,
-    // Used to determine how check run's logs should be parsed
-    check_run_command_map: &mut HashMap<CheckRunId, CommandType>,
+    command_mode: CommandMode,
     all_failed_check_runs: &[SimpleCheckRun],
 ) -> Result<HashMap<CheckRunId, Vec<CheckError>>> {
     let log_map = fetch_check_run_logs(client, repo, all_failed_check_runs).await?;
@@ -259,15 +275,26 @@ async fn process_failed_check_runs(
     for (check_run_id, log_bytes) in log_map.iter() {
         let check_run_id = *check_run_id;
         let log_bytes = log_bytes.clone();
-        if let Some(command_type) = check_run_command_map.remove(&check_run_id) {
-            let command = commands.get(&command_type).unwrap().clone();
+        let command = match &command_mode {
+            CommandMode::Single(single_command) => {
+                single_command.clone() // Single mode: use the same command for all check runs
+            }
+            CommandMode::Multiple {
+                command_map,
+                check_run_command_map,
+            } => {
+                let command_type = check_run_command_map
+                    .get(&check_run_id)
+                    .unwrap_or_else(|| panic!("Unknown check run id: {}", check_run_id));
+                command_map.get(command_type).unwrap().clone()
+            }
+        };
 
-            let handle = tokio::task::spawn_blocking(move || {
-                let log_str = std::str::from_utf8(&log_bytes)?;
-                Ok((check_run_id, command.parse_log(log_str)?))
-            });
-            parse_futures.push(handle);
-        }
+        let handle = tokio::task::spawn_blocking(move || {
+            let log_str = std::str::from_utf8(&log_bytes)?;
+            Ok((check_run_id, command.parse_log(log_str)?))
+        });
+        parse_futures.push(handle);
     }
 
     let results = try_join_all(parse_futures).await?;
