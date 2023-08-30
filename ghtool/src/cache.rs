@@ -4,7 +4,6 @@ use eyre::Result;
 use futures::Future;
 use lazy_static::lazy_static;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use sled::Db;
 use tracing::{debug, info};
 
 lazy_static! {
@@ -15,11 +14,6 @@ lazy_static! {
         info!(?path, "using cache path");
         cache_path
     };
-    pub static ref DB: Db = sled::Config::new()
-        .path(CACHE_DIR.as_str())
-        .use_compression(true)
-        .open()
-        .expect("failed to open database");
 }
 
 #[derive(Serialize, Deserialize)]
@@ -28,18 +22,21 @@ struct CacheValue<V> {
     timestamp: SystemTime,
 }
 
+// The db needs to be opened in call to allow multiple processes
 pub fn put<K, V>(key: K, value: V) -> Result<()>
 where
     K: AsRef<[u8]> + std::fmt::Debug,
     V: Serialize,
 {
+    let db = open_db()?;
     let value = CacheValue {
         value,
         timestamp: SystemTime::now(),
     };
     let bytes = serde_json::to_vec(&value)?;
-    DB.insert(&key, bytes)?;
+    db.insert(&key, bytes)?;
     debug!(?key, "cache key set");
+    db.flush()?;
     Ok(())
 }
 
@@ -48,7 +45,8 @@ where
     K: AsRef<[u8]> + std::fmt::Debug,
     V: DeserializeOwned,
 {
-    let bytes = DB.get(&key)?;
+    let db = open_db()?;
+    let bytes = db.get(&key)?;
     let value = match bytes {
         Some(bytes) => {
             debug!(?key, "found cached key");
@@ -77,4 +75,12 @@ where
             Ok(value)
         }
     }
+}
+
+fn open_db() -> Result<sled::Db> {
+    let db = sled::Config::new()
+        .path(CACHE_DIR.as_str())
+        .use_compression(true)
+        .open()?;
+    Ok(db)
 }
