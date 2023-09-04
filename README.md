@@ -196,7 +196,7 @@ Any ideas on how to improve this are appreciated.
 
 ## Changelog
 
-## Unreleased
+## 0.10.0 (04.09.2023)
 
 - Made `test`, `build` and `lint` subcommands wait for pending jobs the same
   way as `all` subcommand.
