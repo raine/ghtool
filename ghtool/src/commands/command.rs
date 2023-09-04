@@ -19,7 +19,7 @@ use crate::{
     },
     repo_config::RepoConfig,
     setup::get_repo_config,
-    term::{bold, print_all_checks_green, print_check_run_header, print_some_checks_in_progress},
+    term::{bold, print_all_checks_green, print_check_run_header},
     token_store,
 };
 
@@ -79,9 +79,14 @@ pub async fn handle_command(
         .await?
         .ok_or_else(|| eyre::eyre!("No pull request found for branch {}", bold(&branch)))?;
 
-    let all_check_runs = client.get_pr_status_checks(&pull_request.id, true).await?;
-    let (failed_check_runs, any_in_progress, no_matching_runs) =
-        filter_check_runs(&*command, &all_check_runs);
+    let command_clone = command.clone();
+    let match_checkrun_name =
+        move |name: &str| -> bool { command_clone.config().job_pattern().is_match(name) };
+
+    let all_check_runs =
+        wait_for_pr_checks(&client, pull_request.id, Some(&match_checkrun_name)).await?;
+
+    let (failed_check_runs, _, no_matching_runs) = filter_check_runs(&*command, &all_check_runs);
     info!(?failed_check_runs, "got failed check runs");
 
     if no_matching_runs {
@@ -94,11 +99,7 @@ pub async fn handle_command(
     }
 
     if failed_check_runs.is_empty() {
-        if any_in_progress {
-            print_some_checks_in_progress(command.name());
-        } else {
-            print_all_checks_green();
-        }
+        print_all_checks_green();
         return Ok(());
     }
 
@@ -141,7 +142,7 @@ pub async fn handle_all_command(cli: &Cli) -> Result<()> {
         .await?
         .ok_or_else(|| eyre::eyre!("No pull request found for branch {}", bold(&branch)))?;
 
-    let all_check_runs = wait_for_pr_checks(&client, pull_request.id).await?;
+    let all_check_runs = wait_for_pr_checks(&client, pull_request.id, None).await?;
     let mut all_failed_check_runs = Vec::new();
     let mut check_run_command_map: HashMap<CheckRunId, CommandType> = HashMap::new();
     let mut command_check_run_map: HashMap<CommandType, Vec<CheckRunId>> = HashMap::new();

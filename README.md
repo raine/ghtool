@@ -196,6 +196,11 @@ Any ideas on how to improve this are appreciated.
 
 ## Changelog
 
+## Unreleased
+
+- Made `test`, `build` and `lint` subcommands wait for pending jobs the same
+  way as `all` subcommand.
+
 ## 0.9.0 (29.08.2023)
 
 - Added a way to login with a provided access token.

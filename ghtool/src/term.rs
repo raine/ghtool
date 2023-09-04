@@ -55,14 +55,6 @@ pub fn print_all_checks_green() {
     eprintln!("{} All checks are green", green("✓"));
 }
 
-pub fn print_some_checks_in_progress(command_name: &str) {
-    eprintln!(
-        "{} Some {} checks are still in progress",
-        bold("⚠"),
-        command_name
-    );
-}
-
 pub fn read_stdin() -> Result<String> {
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;

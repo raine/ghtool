@@ -12,14 +12,21 @@ use super::{CheckConclusionState, GithubClient, SimpleCheckRun};
 
 const POLL_INTERVAL: Duration = Duration::from_secs(10);
 
+type CheckRunMatcher = dyn Fn(&str) -> bool;
+
 pub async fn wait_for_pr_checks(
     client: &GithubClient,
     pull_request_id: Id,
+    match_checkrun_name: Option<&CheckRunMatcher>,
 ) -> Result<Vec<SimpleCheckRun>> {
     let m = MultiProgress::new();
     let spinners = Arc::new(Mutex::new(HashMap::new()));
 
-    let initial_check_runs = client.get_pr_status_checks(&pull_request_id, true).await?;
+    let mut initial_check_runs = client.get_pr_status_checks(&pull_request_id, true).await?;
+    if let Some(match_checkrun_name) = match_checkrun_name {
+        initial_check_runs.retain(|check_run| match_checkrun_name(&check_run.name));
+    }
+
     let all_completed = initial_check_runs
         .iter()
         .all(|check_run| check_run.completed_at.map_or(false, |_| true));
@@ -42,7 +49,11 @@ pub async fn wait_for_pr_checks(
 
     let check_runs = loop {
         match client.get_pr_status_checks(&pull_request_id, false).await {
-            Ok(check_runs) => {
+            Ok(mut check_runs) => {
+                if let Some(match_checkrun_name) = match_checkrun_name {
+                    check_runs.retain(|check_run| match_checkrun_name(&check_run.name));
+                }
+
                 if process_check_runs(&m, &check_runs, &spinners).await {
                     break check_runs;
                 }
