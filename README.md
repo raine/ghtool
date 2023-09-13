@@ -196,6 +196,11 @@ Any ideas on how to improve this are appreciated.
 
 ## Changelog
 
+## 0.10.1 (13.09.2023)
+
+- Print errors as soon as first the pending job fails, i.e. don't wait for all
+  to complete.
+
 ## 0.10.0 (04.09.2023)
 
 - The `test`, `build` and `lint` subcommands now wait for pending jobs the same

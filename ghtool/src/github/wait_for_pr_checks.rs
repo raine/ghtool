@@ -27,11 +27,17 @@ pub async fn wait_for_pr_checks(
         initial_check_runs.retain(|check_run| match_checkrun_name(&check_run.name));
     }
 
+    let any_failed = initial_check_runs.iter().any(|check_run| {
+        check_run.conclusion.map_or(false, |conclusion| {
+            conclusion == CheckConclusionState::Failure
+        })
+    });
+
     let all_completed = initial_check_runs
         .iter()
         .all(|check_run| check_run.completed_at.map_or(false, |_| true));
 
-    if all_completed {
+    if any_failed || all_completed {
         return Ok(initial_check_runs);
     }
 
@@ -71,6 +77,7 @@ async fn process_check_runs(
     check_runs: &[SimpleCheckRun],
     spinners: &Arc<Mutex<HashMap<u64, ProgressBar>>>,
 ) -> bool {
+    let mut any_failed = false;
     let mut all_completed = true;
     let max_check_name_length = check_runs
         .iter()
@@ -85,9 +92,11 @@ async fn process_check_runs(
         } else {
             all_completed = false;
         }
+
+        any_failed = check_run.conclusion == Some(CheckConclusionState::Failure);
     }
 
-    all_completed
+    any_failed || all_completed
 }
 
 async fn get_or_insert_spinner(
