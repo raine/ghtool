@@ -1,20 +1,12 @@
 use clap::Parser;
-use cli::Commands;
 use commands::{auth, handle_all_command, handle_command, CommandType};
 use eyre::Result;
+use ghtool::{
+    cli::{self, Commands},
+    commands, setup, term,
+};
 use setup::setup;
 use term::exit_with_error;
-
-mod cache;
-mod cli;
-mod commands;
-mod git;
-mod github;
-mod repo_config;
-mod setup;
-mod spinner;
-mod term;
-mod token_store;
 
 async fn run() -> Result<()> {
     let cli = setup()?;
