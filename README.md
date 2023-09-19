@@ -196,7 +196,7 @@ Any ideas on how to improve this are appreciated.
 
 ## Changelog
 
-## Unreleased
+## 0.10.2 (19.09.2023)
 
 - Fix duplicate test errors in output with `test`.
 
