@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "ghtool",
+    "ghtool_devtools",
     "github_schema"
 ]
 

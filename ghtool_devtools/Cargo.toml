@@ -1,0 +1,10 @@
+[package]
+name = "ghtool_devtools"
+version = "0.0.1"
+edition = "2021"
+repository = "https://github.com/raine/ghtool"
+readme = "../README.md"
+
+[dependencies]
+ghtool = { path = "../ghtool" }
+eyre = "0.6.8"

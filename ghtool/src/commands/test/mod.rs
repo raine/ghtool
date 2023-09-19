@@ -4,7 +4,7 @@ use regex::Regex;
 use crate::repo_config::RepoConfig;
 use crate::repo_config::TestConfig;
 
-mod jest;
+pub mod jest;
 
 use jest::*;
 

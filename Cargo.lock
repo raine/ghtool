@@ -1070,6 +1070,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ghtool_devtools"
+version = "0.0.1"
+dependencies = [
+ "eyre",
+ "ghtool",
+]
+
+[[package]]
 name = "gimli"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
