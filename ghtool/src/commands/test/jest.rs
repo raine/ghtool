@@ -47,7 +47,7 @@ impl JestLogParser {
     }
 
     fn parse_line(&mut self, raw_line: &str) -> Result<(), eyre::Error> {
-        let line_no_ansi = String::from_utf8(strip_ansi_escapes::strip(raw_line.as_bytes())?)?;
+        let line_no_ansi = String::from_utf8(strip_ansi_escapes::strip(raw_line.as_bytes()))?;
         let line = TIMESTAMP.replace(raw_line, "");
 
         match self.state {

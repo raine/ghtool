@@ -20,7 +20,7 @@ pub fn print_header(header: &str) {
         let end_border = format!("└{}┘", horizontal_border);
         println!("{}", border);
         for line in lines {
-            let stripped_line = strip_ansi_escapes::strip(line).unwrap();
+            let stripped_line = strip_ansi_escapes::strip(line);
             let mut line = String::from_utf8(stripped_line).unwrap();
             let line_len = line.chars().count();
             if line_len > w - 4 {

@@ -61,7 +61,7 @@ impl EslintLogParser {
 
     fn parse_line(&mut self, raw_line: &str) {
         let line_no_ansi =
-            String::from_utf8(strip_ansi_escapes::strip(raw_line.as_bytes()).unwrap()).unwrap();
+            String::from_utf8(strip_ansi_escapes::strip(raw_line.as_bytes())).unwrap();
 
         match self.state {
             State::LookingForFile => {

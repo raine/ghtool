@@ -24,11 +24,11 @@ tracing-subscriber = {version = "0.3.17", default-features = false, features = [
 cynic-github-schema = { path = "../github_schema", version = "0.1.0" }
 serde = "1.0.188"
 http = "0.2.9"
-toml = "0.7.6"
+toml = "0.8.0"
 regex = "1.9.4"
 dirs = "5.0.1"
 futures = "0.3.28"
-strip-ansi-escapes = "0.1.1"
+strip-ansi-escapes = "0.2.0"
 lazy_static = "1.4.0"
 clap = { version = "4.4.1", features = ["derive"] }
 term_size = "0.3.2"
