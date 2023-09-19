@@ -196,6 +196,10 @@ Any ideas on how to improve this are appreciated.
 
 ## Changelog
 
+## Unreleased
+
+- Fix duplicate test errors in output with `test`.
+
 ## 0.10.1 (13.09.2023)
 
 - Print errors as soon as first the pending job fails, i.e. don't wait for all

@@ -102,6 +102,13 @@ impl JestLogParser {
 
     pub fn get_output(self) -> Vec<CheckError> {
         self.all_fails
+            .into_iter()
+            .fold(Vec::new(), |mut acc, fail| {
+                if !acc.contains(&fail) {
+                    acc.push(fail);
+                }
+                acc
+            })
     }
 }
 
@@ -250,5 +257,33 @@ mod tests {
                 "src/components/MyComponent/MyComponent3.test.tsx".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn test_remove_duplicate_check_errors() {
+        let logs = r#"
+2023-09-14T12:22:30.2648458Z
+2023-09-14T12:22:30.2648458Z FAIL src/components/MyComponent/MyComponent3.test.tsx
+2023-09-14T12:22:30.2648458Z   ● Test suite failed to run
+2023-09-14T12:22:30.2648458Z     TypeError: Cannot read property 'foo' of undefined
+2023-09-14T12:22:30.2648458Z
+2023-09-14T12:22:30.2648458Z       1 | import React from 'react';
+2023-09-14T12:22:30.2648458Z 
+2023-09-14T12:22:30.2649146Z Summary of all failing tests
+2023-09-14T12:22:30.2648458Z FAIL src/components/MyComponent/MyComponent3.test.tsx
+2023-09-14T12:22:30.2648458Z   ● Test suite failed to run
+2023-09-14T12:22:30.2648458Z     TypeError: Cannot read property 'foo' of undefined
+2023-09-14T12:22:30.2648458Z
+2023-09-14T12:22:30.2648458Z       1 | import React from 'react';
+2023-09-14T12:22:30.2673693Z 
+2023-09-14T12:22:30.2673711Z 
+2023-09-14T12:22:30.2678119Z Test Suites: 1 failed, 67 passed, 68 total
+2023-09-14T12:22:30.2679079Z Tests:       1 failed, 469 passed, 470 total
+2023-09-14T12:22:30.2680281Z Snapshots:   60 passed, 60 total
+2023-09-14T12:22:30.2680933Z Time:        216.339 s
+        "#;
+
+        let failing_tests = JestLogParser::parse(logs).unwrap();
+        assert_eq!(failing_tests.len(), 1);
     }
 }
