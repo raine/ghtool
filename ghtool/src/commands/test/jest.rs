@@ -112,6 +112,12 @@ impl JestLogParser {
     }
 }
 
+impl Default for JestLogParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // Tests
 #[cfg(test)]
 mod tests {
