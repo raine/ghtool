@@ -1029,7 +1029,7 @@ dependencies = [
 
 [[package]]
 name = "ghtool"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "bytes",
  "chrono",
