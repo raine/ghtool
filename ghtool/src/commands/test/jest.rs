@@ -45,12 +45,22 @@ impl JestLogParser {
     }
 
     fn parse_line(&mut self, raw_line: &str) -> Result<(), eyre::Error> {
+        let line_no_ansi = String::from_utf8(strip_ansi_escapes::strip(raw_line.as_bytes()))?;
         let line_no_timestamp = TIMESTAMP.replace(raw_line, "");
 
         match self.state {
             State::LookingForFail => {
-                if let Some(caps) = JEST_FAIL_LINE.captures(&line_no_timestamp) {
-                    self.current_fail_start_col = caps.name("fail").unwrap().start();
+                if let Some(caps) = JEST_FAIL_LINE.captures(&line_no_ansi) {
+                    // Attempt to find the column where the colored FAIL text starts.
+                    // This column position will be used to determine where jest output starts.
+                    // We can't just take everything after timestamp because there's possibility
+                    // that jest is running inside docker-compose in which case there would be
+                    // service name after timestamp.
+                    // https://github.com/raine/ghtool/assets/11027/c349807a-cad1-45cb-b02f-4d5020bb3c23
+                    let reset_escape_code = "\u{1b}[0m\u{1b}[7m";
+                    let reset_pos = line_no_timestamp.find(reset_escape_code);
+                    let fail_pos = line_no_timestamp.find("FAIL");
+                    self.current_fail_start_col = reset_pos.unwrap_or(fail_pos.unwrap());
                     let path = caps.name("path").unwrap().as_str().to_string();
                     // Get line discarding things before the column where FAIL starts
                     let line = line_no_timestamp
@@ -351,6 +361,56 @@ mod tests {
                     "      at Object.<anonymous> (src/a.test.ts:62:20)".to_string(),
                 ],
             }]
+        );
+    }
+
+    #[test]
+    fn test_colors() {
+        let logs = r#"
+2024-05-11T20:44:13.9945728Z [2K[1G[2m$ jest ./src --color --ci --shard=1/2[22m
+2024-05-11T20:45:16.0032874Z [0m[7m[1m[31m FAIL [39m[22m[27m[0m [2msrc/[22m[1mtest2.test.ts[22m ([0m[1m[41m61.458 s[49m[22m[0m)
+2024-05-11T20:45:16.0034300Z   test2
+2024-05-11T20:45:16.0037347Z     [32m✓[39m [2msucceeds (1 ms)[22m
+2024-05-11T20:45:16.0038258Z     [31m✕[39m [2mfails (2 ms)[22m
+2024-05-11T20:45:16.0039034Z     [32m✓[39m [2mfoo (60001 ms)[22m
+2024-05-11T20:45:16.0039463Z 
+2024-05-11T20:45:16.0039981Z [1m[31m  [1m● [22m[1mtest2 › fails[39m[22m
+2024-05-11T20:45:16.0040506Z 
+2024-05-11T20:45:16.0041462Z     [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+2024-05-11T20:45:16.0045857Z 
+2024-05-11T20:45:16.0046210Z     Expected: [32mfalse[39m
+2024-05-11T20:45:16.0046774Z     Received: [31mtrue[39m
+2024-05-11T20:45:16.0047256Z [2m[22m
+2024-05-11T20:45:16.0047765Z [2m    [0m [90m  5 |[39m[0m[22m
+2024-05-11T20:45:16.0048791Z [2m    [0m [90m  6 |[39m   it([32m"fails"[39m[33m,[39m () [33m=>[39m {[0m[22m
+2024-05-11T20:45:16.0051048Z [2m    [0m[31m[1m>[22m[2m[39m[90m  7 |[39m     expect([36mtrue[39m)[33m.[39mtoBe([36mfalse[39m)[33m;[39m[0m[22m
+2024-05-11T20:45:16.0052427Z [2m    [0m [90m    |[39m                  [31m[1m^[22m[2m[39m[0m[22m
+2024-05-11T20:45:16.0053352Z [2m    [0m [90m  8 |[39m   })[33m;[39m[0m[22m
+2024-05-11T20:45:16.0054060Z [2m    [0m [90m  9 |[39m[0m[22m
+2024-05-11T20:45:16.0055164Z [2m    [0m [90m 10 |[39m   it([32m"foo"[39m[33m,[39m [36masync[39m () [33m=>[39m {[0m[22m
+2024-05-11T20:45:16.0056008Z [2m[22m
+2024-05-11T20:45:16.0057064Z [2m      [2mat Object.<anonymous> ([22m[2m[0m[36msrc/test2.test.ts[39m[0m[2m:7:18)[22m[2m[22m
+2024-05-11T20:45:16.0057817Z 
+2024-05-11T20:45:16.0064933Z [1mTest Suites: [22m[1m[31m1 failed[39m[22m, 1 total
+2024-05-11T20:45:16.0065943Z [1mTests:       [22m[1m[31m1 failed[39m[22m, [1m[32m2 passed[39m[22m, 3 total
+2024-05-11T20:45:16.0066489Z [1mSnapshots:   [22m0 total
+2024-05-11T20:45:16.0066847Z [1mTime:[22m        61.502 s
+2024-05-11T20:45:16.0067359Z [2mRan all test suites[22m[2m matching [22m/.\/src/i[2m.[22m
+        "#;
+
+        let failing_tests = JestLogParser::parse(logs).unwrap();
+        assert_eq!(
+            failing_tests,
+            vec![CheckError {
+                path: "src/test2.test.ts".to_string(),
+                lines: vec![
+                    "\u{1b}[0m\u{1b}[7m\u{1b}[1m\u{1b}[31m FAIL \u{1b}[39m\u{1b}[22m\u{1b}[27m\u{1b}[0m \u{1b}[2msrc/\u{1b}[22m\u{1b}[1mtest2.test.ts\u{1b}[22m (\u{1b}[0m\u{1b}[1m\u{1b}[41m61.458 s\u{1b}[49m\u{1b}[22m\u{1b}[0m)".to_string(),
+                    "  test2".to_string(),
+                    "    \u{1b}[32m✓\u{1b}[39m \u{1b}[2msucceeds (1 ms)\u{1b}[22m".to_string(),
+                    "    \u{1b}[31m✕\u{1b}[39m \u{1b}[2mfails (2 ms)\u{1b}[22m".to_string(),
+                    "    \u{1b}[32m✓\u{1b}[39m \u{1b}[2mfoo (60001 ms)\u{1b}[22m".to_string(),
+                ]
+            },]
         );
     }
 }

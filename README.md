@@ -196,6 +196,10 @@ Any ideas on how to improve this are appreciated.
 
 ## Changelog
 
+## 0.10.5 (12.05.2024)
+
+- jest: Handle colored output.
+
 ## 0.10.3 (11.05.2024)
 
 - jest: Allow parsing logs where jest runs using docker-compose.
