@@ -8,10 +8,8 @@ const TIMESTAMP_PATTERN: &str = r"(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d
 lazy_static! {
     /// Regex to match a timestamp and single space after it
     static ref TIMESTAMP: Regex = Regex::new(&format!(r"{TIMESTAMP_PATTERN}\s?")).unwrap();
-    static ref JEST_FAIL_LINE: Regex = Regex::new(&format!(
-        r"{TIMESTAMP_PATTERN}\s+(?P<fail>FAIL)\s+(?P<path>[a-zA-Z0-9._-]*/[a-zA-Z0-9./_-]*)",
-    ))
-    .unwrap();
+    static ref JEST_FAIL_LINE: Regex =
+        Regex::new(r"(?P<fail>FAIL)\s+(?P<path>[a-zA-Z0-9._-]*/[a-zA-Z0-9./_-]*)").unwrap();
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -291,5 +289,63 @@ mod tests {
 
         let failing_tests = JestLogParser::parse(logs).unwrap();
         assert_eq!(failing_tests.len(), 1);
+    }
+
+    #[test]
+    fn test_jest_in_docker() {
+        let logs = r#"
+2023-12-14T12:24:25.7014935Z [36mtest_1            |[0m $ jest -c jest.config.test.js
+2023-12-14T12:24:43.7723478Z [36mtest_1            |[0m PASS src/a.test.ts (16.764 s)
+2023-12-14T12:24:53.1189316Z [36mtest_1            |[0m FAIL src/b.test.ts
+2023-12-14T12:24:53.1486488Z [36mtest_1            |[0m   ● test › return test things
+2023-12-14T12:24:53.1488314Z [36mtest_1            |[0m
+2023-12-14T12:24:53.1489247Z [36mtest_1            |[0m     expect(received).toMatchObject(expected)
+2023-12-14T12:24:53.1490238Z [36mtest_1            |[0m
+2023-12-14T12:24:53.1490994Z [36mtest_1            |[0m     - Expected  - 1
+2023-12-14T12:24:53.1491871Z [36mtest_1            |[0m     + Received  + 0
+2023-12-14T12:24:53.1492657Z [36mtest_1            |[0m
+2023-12-14T12:24:53.1493405Z [36mtest_1            |[0m     @@ -17,9 +17,8 @@
+2023-12-14T12:24:53.1662308Z [36mtest_1            |[0m     -       "testId": undefined,
+2023-12-14T12:24:53.1684564Z [36mtest_1            |[0m           },
+2023-12-14T12:24:53.1724498Z [36mtest_1            |[0m         },
+2023-12-14T12:24:53.1764019Z [36mtest_1            |[0m       ]
+2023-12-14T12:24:53.1788159Z [36mtest_1            |[0m
+2023-12-14T12:24:53.1790147Z [36mtest_1            |[0m     > 62 |     expect(result).toMatchObject([
+2023-12-14T12:24:53.1790859Z [36mtest_1            |[0m          |                    ^
+2023-12-14T12:24:53.1794182Z [36mtest_1            |[0m
+2023-12-14T12:24:53.1794946Z [36mtest_1            |[0m       at Object.<anonymous> (src/a.test.ts:62:20)
+2023-12-14T12:24:53.1841737Z [36mtest_1            |[0m
+2023-12-14T12:24:53.4683252Z [36mtest_1            |[0m PASS src/b.test.ts
+        "#;
+
+        let failing_tests = JestLogParser::parse(logs).unwrap();
+
+        assert_eq!(
+            failing_tests,
+            vec![CheckError {
+                path: "src/b.test.ts".to_string(),
+                lines: vec![
+                     "\u{1b}[36mtest_1            |\u{1b}[0m FAIL src/b.test.ts".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m   ● test › return test things".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m     expect(received).toMatchObject(expected)".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m     - Expected  - 1".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m     + Received  + 0".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m     @@ -17,9 +17,8 @@".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m     -       \"testId\": undefined,".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m           },".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m         },".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m       ]".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m     > 62 |     expect(result).toMatchObject([".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m          |                    ^".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m       at Object.<anonymous> (src/a.test.ts:62:20)".to_string(),
+                     "\u{1b}[36mtest_1            |\u{1b}[0m".to_string(),
+                ],
+            }]
+        );
     }
 }
