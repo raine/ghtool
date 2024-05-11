@@ -196,6 +196,10 @@ Any ideas on how to improve this are appreciated.
 
 ## Changelog
 
+## 0.10.3 (11.05.2024)
+
+- jest: Allow parsing logs where jest runs using docker-compose.
+
 ## 0.10.2 (19.09.2023)
 
 - Fix duplicate test errors in output with `test`.
