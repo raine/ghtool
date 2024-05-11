@@ -45,14 +45,18 @@ impl JestLogParser {
     }
 
     fn parse_line(&mut self, raw_line: &str) -> Result<(), eyre::Error> {
-        let line_no_ansi = String::from_utf8(strip_ansi_escapes::strip(raw_line.as_bytes()))?;
-        let line = TIMESTAMP.replace(raw_line, "");
+        let line_no_timestamp = TIMESTAMP.replace(raw_line, "");
 
         match self.state {
             State::LookingForFail => {
-                if let Some(caps) = JEST_FAIL_LINE.captures(&line_no_ansi) {
+                if let Some(caps) = JEST_FAIL_LINE.captures(&line_no_timestamp) {
                     self.current_fail_start_col = caps.name("fail").unwrap().start();
                     let path = caps.name("path").unwrap().as_str().to_string();
+                    // Get line discarding things before the column where FAIL starts
+                    let line = line_no_timestamp
+                        .chars()
+                        .skip(self.current_fail_start_col)
+                        .collect::<String>();
                     self.current_fail = Some(CheckError {
                         lines: vec![line.to_string()],
                         path,
@@ -61,8 +65,8 @@ impl JestLogParser {
                 }
             }
             State::ParsingFail => {
-                if line_no_ansi.len() > self.current_fail_start_col
-                    && line_no_ansi.chars().nth(self.current_fail_start_col) != Some(' ')
+                if line_no_timestamp.len() > self.current_fail_start_col
+                    && line_no_timestamp.chars().nth(self.current_fail_start_col) != Some(' ')
                 {
                     let mut current_fail = std::mem::take(&mut self.current_fail).unwrap();
 
@@ -77,11 +81,13 @@ impl JestLogParser {
                     self.current_fail_lines = Vec::new();
                     self.state = State::LookingForFail;
                 } else {
-                    self.current_fail
-                        .as_mut()
-                        .unwrap()
-                        .lines
-                        .push(line.to_string());
+                    // Get line discarding things before the column where FAIL starts
+                    let line = line_no_timestamp
+                        .chars()
+                        .skip(self.current_fail_start_col)
+                        .collect::<String>();
+
+                    self.current_fail.as_mut().unwrap().lines.push(line);
                 }
             }
         }
@@ -206,27 +212,27 @@ mod tests {
             vec![CheckError {
                 path: "src/test2.test.ts".to_string(),
                 lines: vec![
-                    " FAIL  src/test2.test.ts".to_string(),
-                    "  test2".to_string(),
-                    "    ✓ succeeds (3 ms)".to_string(),
-                    "    ✕ fails (5 ms)".to_string(),
+                    "FAIL  src/test2.test.ts".to_string(),
+                    " test2".to_string(),
+                    "   ✓ succeeds (3 ms)".to_string(),
+                    "   ✕ fails (5 ms)".to_string(),
                     "".to_string(),
-                    "  ● test2 › fails".to_string(),
+                    " ● test2 › fails".to_string(),
                     "".to_string(),
-                    "    expect(received).toBe(expected) // Object.is equality".to_string(),
+                    "   expect(received).toBe(expected) // Object.is equality".to_string(),
                     "".to_string(),
-                    "    Expected: false".to_string(),
-                    "    Received: true".to_string(),
+                    "   Expected: false".to_string(),
+                    "   Received: true".to_string(),
                     "".to_string(),
-                    "       5 |".to_string(),
-                    "       6 |   it(\"fails\", () => {".to_string(),
-                    "    >  7 |     expect(true).toBe(false);".to_string(),
-                    "         |                  ^".to_string(),
-                    "       8 |   });".to_string(),
-                    "       9 | });".to_string(),
-                    "      10 |".to_string(),
+                    "      5 |".to_string(),
+                    "      6 |   it(\"fails\", () => {".to_string(),
+                    "   >  7 |     expect(true).toBe(false);".to_string(),
+                    "        |                  ^".to_string(),
+                    "      8 |   });".to_string(),
+                    "      9 | });".to_string(),
+                    "     10 |".to_string(),
                     "".to_string(),
-                    "      at Object.<anonymous> (src/test2.test.ts:7:18)".to_string(),
+                    "     at Object.<anonymous> (src/test2.test.ts:7:18)".to_string(),
                 ],
             },]
         );
@@ -325,25 +331,24 @@ mod tests {
             vec![CheckError {
                 path: "src/b.test.ts".to_string(),
                 lines: vec![
-                     "\u{1b}[36mtest_1            |\u{1b}[0m FAIL src/b.test.ts".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m   ● test › return test things".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m     expect(received).toMatchObject(expected)".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m     - Expected  - 1".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m     + Received  + 0".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m     @@ -17,9 +17,8 @@".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m     -       \"testId\": undefined,".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m           },".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m         },".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m       ]".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m     > 62 |     expect(result).toMatchObject([".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m          |                    ^".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m       at Object.<anonymous> (src/a.test.ts:62:20)".to_string(),
-                     "\u{1b}[36mtest_1            |\u{1b}[0m".to_string(),
+                    "FAIL src/b.test.ts".to_string(),
+                    "  ● test › return test things".to_string(),
+                    "".to_string(),
+                    "    expect(received).toMatchObject(expected)".to_string(),
+                    "".to_string(),
+                    "    - Expected  - 1".to_string(),
+                    "    + Received  + 0".to_string(),
+                    "".to_string(),
+                    "    @@ -17,9 +17,8 @@".to_string(),
+                    "    -       \"testId\": undefined,".to_string(),
+                    "          },".to_string(),
+                    "        },".to_string(),
+                    "      ]".to_string(),
+                    "".to_string(),
+                    "    > 62 |     expect(result).toMatchObject([".to_string(),
+                    "         |                    ^".to_string(),
+                    "".to_string(),
+                    "      at Object.<anonymous> (src/a.test.ts:62:20)".to_string(),
                 ],
             }]
         );
