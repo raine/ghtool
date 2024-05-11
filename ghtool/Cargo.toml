@@ -15,7 +15,7 @@ path = "src/bin/main.rs"
 
 [dependencies]
 color-eyre = "0.6.2"
-cynic = { version = "3.2.2", features = ["serde_json", "http-reqwest"] }
+cynic = { version = "3.7.0", features = ["serde_json", "http-reqwest"] }
 eyre = "0.6.8"
 serde_json = "1.0.105"
 tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }
@@ -23,7 +23,7 @@ tracing = "0.1.37"
 tracing-subscriber = {version = "0.3.17", default-features = false, features = ["env-filter", "fmt", "ansi"]}
 cynic-github-schema = { path = "../github_schema", version = "0.1.0" }
 serde = "1.0.188"
-http = "0.2.9"
+http = "1.1.0"
 toml = "0.8.0"
 regex = "1.9.4"
 dirs = "5.0.1"
@@ -33,7 +33,7 @@ lazy_static = "1.4.0"
 clap = { version = "4.4.1", features = ["derive"] }
 term_size = "0.3.2"
 sled = { version = "0.34.7", features = ["compression"] }
-reqwest = { version = "0.11.20", features = ["stream"] }
+reqwest = { version = "0.12.4", features = ["stream"] }
 bytes = "1.4.0"
 indicatif = "0.17.6"
 open = "5.0.0"
@@ -45,4 +45,4 @@ thiserror = "1.0.47"
 pretty_assertions = "1.4.0"
 
 [build-dependencies]
-cynic-codegen = { version = "3.2.2", features = ["rkyv"] }
+cynic-codegen = { version = "3.7.0", features = ["rkyv"] }

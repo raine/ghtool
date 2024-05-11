@@ -6,4 +6,4 @@ description = "Github graphql schema for cynic"
 license = "MIT"
 
 [dependencies]
-cynic = { version = "3.2.2" }
+cynic = { version = "3.7.0" }

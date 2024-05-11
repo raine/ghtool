@@ -3,7 +3,8 @@ members = [
     "ghtool",
     "ghtool_devtools",
     "github_schema"
-]
+] 
+resolver = "2"
 
 default-members = [
     "ghtool"
