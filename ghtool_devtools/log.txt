@@ -1,0 +1,27 @@
+2024-05-29T08:34:09.8655201Z   [1m[31m[7mFAIL[27m[39m[22m src/a.spec.tsx ([31m[7m14728 ms[27m[39m)
+2024-05-29T08:34:09.8656607Z     utilityFunction
+2024-05-29T08:34:09.8658244Z       [31m✕[39m should perform action correctly (29 ms)
+2024-05-29T08:34:11.2518625Z ##[group][1m[32m[7mPASS[27m[39m[22m src/FeatureSection.spec.tsx ([31m[7m44752 ms[27m[39m)
+2024-05-29T08:37:56.8027075Z [1mSummary of all failing tests[22m
+2024-05-29T08:37:56.8042690Z [0m[7m[1m[31m FAIL [39m[22m[27m[0m [2mpackages/foo/src/[22m[1ma.spec.tsx[22m ([0m[1m[41m14.728 s[49m[22m[0m)
+2024-05-29T08:37:56.8045558Z [1m[31m  [1m● [22m[1mutilityFunction › should perform action correctly[39m[22m
+2024-05-29T08:37:56.8046501Z 
+2024-05-29T08:37:56.8046955Z     TypeError: Cannot read properties of undefined (reading 'property')
+2024-05-29T08:37:56.8047659Z [2m[22m
+2024-05-29T08:37:56.8048616Z [2m    [0m [90m 228 |[39m               [90m// To handle undefined properties safely[39m[22m
+2024-05-29T08:37:56.8049807Z [2m     [90m 229 |[39m               isEnabled[33m:[39m[22m
+2024-05-29T08:37:56.8051465Z [2m    [31m[1m>[22m[2m[39m[90m 230 |[39m                 object[33m.[39mproperty[33m.[39mmode [33m===[39m [32m'active'[39m[33m,[39m[22m
+2024-05-29T08:37:56.8052724Z [2m     [90m     |[39m                                      [31m[1m^[22m[2m[39m[22m
+2024-05-29T08:37:56.8053954Z [2m     [90m 231 |[39m               [33m...[39m(isEnabled [33m?[39m { isEnabled } [33m:[39m {})[33m,[39m[22m
+2024-05-29T08:37:56.8055365Z [2m     [90m 232 |[39m             }[33m;[39m[22m
+2024-05-29T08:37:56.8056071Z [2m     [90m 233 |[39m           })[33m,[39m[0m[22m
+2024-05-29T08:37:56.8056615Z [2m[22m
+2024-05-29T08:37:56.8062690Z [2m      [2mat property ([22m[2msrc/fileA.ts[2m:230:38)[22m[2m[22m
+2024-05-29T08:37:56.8063920Z [2m          at Array.map (<anonymous>)[22m
+2024-05-29T08:37:56.8065216Z [2m      [2mat map ([22m[2msrc/fileA.ts[2m:200:45)[22m[2m[22m
+2024-05-29T08:37:56.8067038Z [2m          at Array.reduce (<anonymous>)[22m
+2024-05-29T08:37:56.8068351Z [2m      [2mat reduce ([22m[2msrc/fileA.ts[2m:196:61)[22m[2m[22m
+2024-05-29T08:37:56.8118331Z 
+2024-05-29T08:37:56.8118337Z 
+2024-05-29T08:37:56.8125241Z [1mTest Suites: [22m[1m[31m1 failed[39m[22m, [1m[33m1 skipped[39m[22m, [1m[32m100 passed[39m[22m, 100 of 100 total
+2024-05-29T08:37:56.8127233Z [1mTests:       [22m[1m[31m1 failed[39m[22m, [1m[33m21 skipped[39m[22m, [1m[35m2 todo[39m[22m, [1m[32m100 passed[39m[22m, 100 total

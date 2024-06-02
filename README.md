@@ -196,6 +196,10 @@ Any ideas on how to improve this are appreciated.
 
 ## Changelog
 
+## 0.10.6 (02.06.2024)
+
+- jest: Handle more cases with ANSI colors.
+
 ## 0.10.5 (12.05.2024)
 
 - jest: Handle colored output.

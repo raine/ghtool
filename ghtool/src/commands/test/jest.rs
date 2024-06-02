@@ -10,6 +10,18 @@ lazy_static! {
     static ref TIMESTAMP: Regex = Regex::new(&format!(r"{TIMESTAMP_PATTERN}\s?")).unwrap();
     static ref JEST_FAIL_LINE: Regex =
         Regex::new(r"(?P<fail>FAIL)\s+(?P<path>[a-zA-Z0-9._-]*/[a-zA-Z0-9./_-]*)").unwrap();
+    static ref ESCAPE_SEQUENCE: Regex = Regex::new(r"\x1B\[\d+(;\d+)*m").unwrap();
+    static ref FAIL_START: Regex = Regex::new(r"(\x1B\[\d+(;\d+)*m)+\s?FAIL").unwrap();
+}
+
+fn find_fail_start(log: &str) -> Option<usize> {
+    // First handle test_jest_in_docker case: ... |^[[0m FAIL src/b.test.ts
+    // In this case, we should get the position where FAIL starts
+    // Otherwise try to find left most escape sequence position before FAIL
+    log.find("\u{1b}[0m FAIL")
+        .and_then(|_| log.find("FAIL"))
+        .or_else(|| FAIL_START.find(log).map(|m| m.start()))
+        .or_else(|| log.find("FAIL"))
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -57,10 +69,7 @@ impl JestLogParser {
                     // that jest is running inside docker-compose in which case there would be
                     // service name after timestamp.
                     // https://github.com/raine/ghtool/assets/11027/c349807a-cad1-45cb-b02f-4d5020bb3c23
-                    let reset_escape_code = "\u{1b}[0m\u{1b}[7m";
-                    let reset_pos = line_no_timestamp.find(reset_escape_code);
-                    let fail_pos = line_no_timestamp.find("FAIL");
-                    self.current_fail_start_col = reset_pos.unwrap_or(fail_pos.unwrap());
+                    self.current_fail_start_col = find_fail_start(&line_no_timestamp).unwrap();
                     let path = caps.name("path").unwrap().as_str().to_string();
                     // Get line discarding things before the column where FAIL starts
                     let line = line_no_timestamp
@@ -75,8 +84,13 @@ impl JestLogParser {
                 }
             }
             State::ParsingFail => {
+                let next_char_from_fail =
+                    find_next_non_ansi_char(&line_no_timestamp, self.current_fail_start_col);
+
+                // https://github.com/raine/ghtool/assets/11027/08dd631e-391c-4277-8eab-75fe55d9e659
                 if line_no_timestamp.len() > self.current_fail_start_col
-                    && line_no_timestamp.chars().nth(self.current_fail_start_col) != Some(' ')
+                    && next_char_from_fail.is_some()
+                    && next_char_from_fail != Some(' ')
                 {
                     let mut current_fail = std::mem::take(&mut self.current_fail).unwrap();
 
@@ -130,6 +144,31 @@ impl Default for JestLogParser {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn find_next_non_ansi_char(str: &str, start_col: usize) -> Option<char> {
+    let bytes = str.as_bytes();
+    let mut index = start_col;
+
+    while index < bytes.len() {
+        if bytes[index] == 0x1B {
+            // found an ESC character, start skipping the ANSI sequence
+            index += 1; // skip the ESC character
+            if index < bytes.len() && bytes[index] == b'[' {
+                index += 1; // skip the '[' character
+                            // skip until we find a letter indicating the end of the ANSI sequence
+                while index < bytes.len() && !bytes[index].is_ascii_alphabetic() {
+                    index += 1;
+                }
+            }
+        } else {
+            // found a non-ANSI escape character
+            return str[index..].chars().next();
+        }
+        index += 1;
+    }
+
+    None
 }
 
 // Tests
@@ -365,6 +404,37 @@ mod tests {
     }
 
     #[test]
+    fn test_find_fail_position() {
+        let test_cases = vec![
+            (
+                "2023-12-14T12:24:53.1189316Z [36mtest_1            |[0m FAIL src/b.test.ts",
+                Some(58),
+            ),
+            (
+                "2024-05-11T20:45:16.0032874Z [0m[7m[1m[31m FAIL [39m[22m[27m[0m [2msrc/[22m[1mtest2.test.ts[22m ([0m[1m[41m61.458 s[49m[22m[0m)",
+                Some(29),
+            ),
+            (
+                "2024-05-29T08:34:09.8655201Z   [1m[31m[7mFAIL[27m[39m[22m src/a.spec.tsx ([31m[7m14728 ms[27m[39m)",
+                Some(31),
+            ),
+            (
+                "2024-05-11T20:45:16.0032874Z [0m[7m[1m[31m FAIL [39m[22m[27m[0m [2msrc/[22m[1mtest2.test.ts[22m ([0m[1m[41m61.458 s[49m[22m[0m)",
+                Some(29),
+            ),
+        ];
+
+        for (input, expected) in test_cases {
+            assert_eq!(find_fail_start(input), expected);
+        }
+    }
+
+    #[test]
+    fn test_escape_sequence() {
+        assert!(ESCAPE_SEQUENCE.is_match("[0m"));
+    }
+
+    #[test]
     fn test_colors() {
         let logs = r#"
 2024-05-11T20:44:13.9945728Z [2K[1G[2m$ jest ./src --color --ci --shard=1/2[22m
@@ -409,8 +479,102 @@ mod tests {
                     "    \u{1b}[32m✓\u{1b}[39m \u{1b}[2msucceeds (1 ms)\u{1b}[22m".to_string(),
                     "    \u{1b}[31m✕\u{1b}[39m \u{1b}[2mfails (2 ms)\u{1b}[22m".to_string(),
                     "    \u{1b}[32m✓\u{1b}[39m \u{1b}[2mfoo (60001 ms)\u{1b}[22m".to_string(),
+                    "".to_string(),
+                    "\u{1b}[1m\u{1b}[31m  \u{1b}[1m● \u{1b}[22m\u{1b}[1mtest2 › fails\u{1b}[39m\u{1b}[22m".to_string(),
+                    "".to_string(),
+                    "    \u{1b}[2mexpect(\u{1b}[22m\u{1b}[31mreceived\u{1b}[39m\u{1b}[2m).\u{1b}[22mtoBe\u{1b}[2m(\u{1b}[22m\u{1b}[32mexpected\u{1b}[39m\u{1b}[2m) // Object.is equality\u{1b}[22m".to_string(),
+                    "".to_string(),
+                    "    Expected: \u{1b}[32mfalse\u{1b}[39m".to_string(),
+                    "    Received: \u{1b}[31mtrue\u{1b}[39m".to_string(),
+                    "\u{1b}[2m\u{1b}[22m".to_string(),
+                    "\u{1b}[2m    \u{1b}[0m \u{1b}[90m  5 |\u{1b}[39m\u{1b}[0m\u{1b}[22m".to_string(),
+                    "\u{1b}[2m    \u{1b}[0m \u{1b}[90m  6 |\u{1b}[39m   it(\u{1b}[32m\"fails\"\u{1b}[39m\u{1b}[33m,\u{1b}[39m () \u{1b}[33m=>\u{1b}[39m {\u{1b}[0m\u{1b}[22m".to_string(),
+                    "\u{1b}[2m    \u{1b}[0m\u{1b}[31m\u{1b}[1m>\u{1b}[22m\u{1b}[2m\u{1b}[39m\u{1b}[90m  7 |\u{1b}[39m     expect(\u{1b}[36mtrue\u{1b}[39m)\u{1b}[33m.\u{1b}[39mtoBe(\u{1b}[36mfalse\u{1b}[39m)\u{1b}[33m;\u{1b}[39m\u{1b}[0m\u{1b}[22m".to_string(),
+                    "\u{1b}[2m    \u{1b}[0m \u{1b}[90m    |\u{1b}[39m                  \u{1b}[31m\u{1b}[1m^\u{1b}[22m\u{1b}[2m\u{1b}[39m\u{1b}[0m\u{1b}[22m".to_string(),
+                    "\u{1b}[2m    \u{1b}[0m \u{1b}[90m  8 |\u{1b}[39m   })\u{1b}[33m;\u{1b}[39m\u{1b}[0m\u{1b}[22m".to_string(),
+                    "\u{1b}[2m    \u{1b}[0m \u{1b}[90m  9 |\u{1b}[39m\u{1b}[0m\u{1b}[22m".to_string(),
+                    "\u{1b}[2m    \u{1b}[0m \u{1b}[90m 10 |\u{1b}[39m   it(\u{1b}[32m\"foo\"\u{1b}[39m\u{1b}[33m,\u{1b}[39m \u{1b}[36masync\u{1b}[39m () \u{1b}[33m=>\u{1b}[39m {\u{1b}[0m\u{1b}[22m".to_string(),
+                    "\u{1b}[2m\u{1b}[22m".to_string(),
+                    "\u{1b}[2m      \u{1b}[2mat Object.<anonymous> (\u{1b}[22m\u{1b}[2m\u{1b}[0m\u{1b}[36msrc/test2.test.ts\u{1b}[39m\u{1b}[0m\u{1b}[2m:7:18)\u{1b}[22m\u{1b}[2m\u{1b}[22m".to_string(),
                 ]
             },]
         );
+    }
+
+    #[test]
+    fn test_more_colors() {
+        let logs = r#"
+2024-05-29T08:34:09.8655201Z   [1m[31m[7mFAIL[27m[39m[22m src/a.spec.tsx ([31m[7m14728 ms[27m[39m)
+2024-05-29T08:34:09.8656607Z     utilityFunction
+2024-05-29T08:34:09.8658244Z       [31m✕[39m should perform action correctly (29 ms)
+2024-05-29T08:34:11.2518625Z ##[group][1m[32m[7mPASS[27m[39m[22m src/FeatureSection.spec.tsx ([31m[7m44752 ms[27m[39m)
+2024-05-29T08:37:56.8027075Z [1mSummary of all failing tests[22m
+2024-05-29T08:37:56.8042690Z [0m[7m[1m[31m FAIL [39m[22m[27m[0m [2mpackages/foo/src/[22m[1ma.spec.tsx[22m ([0m[1m[41m14.728 s[49m[22m[0m)
+2024-05-29T08:37:56.8045558Z [1m[31m  [1m● [22m[1mutilityFunction › should perform action correctly[39m[22m
+2024-05-29T08:37:56.8046501Z
+2024-05-29T08:37:56.8046955Z     TypeError: Cannot read properties of undefined (reading 'property')
+2024-05-29T08:37:56.8047659Z [2m[22m
+2024-05-29T08:37:56.8048616Z [2m    [0m [90m 228 |[39m               [90m// To handle undefined properties safely[39m[22m
+2024-05-29T08:37:56.8049807Z [2m     [90m 229 |[39m               isEnabled[33m:[39m[22m
+2024-05-29T08:37:56.8051465Z [2m    [31m[1m>[22m[2m[39m[90m 230 |[39m                 object[33m.[39mproperty[33m.[39mmode [33m===[39m [32m'active'[39m[33m,[39m[22m
+2024-05-29T08:37:56.8052724Z [2m     [90m     |[39m                                      [31m[1m^[22m[2m[39m[22m
+2024-05-29T08:37:56.8053954Z [2m     [90m 231 |[39m               [33m...[39m(isEnabled [33m?[39m { isEnabled } [33m:[39m {})[33m,[39m[22m
+2024-05-29T08:37:56.8055365Z [2m     [90m 232 |[39m             }[33m;[39m[22m
+2024-05-29T08:37:56.8056071Z [2m     [90m 233 |[39m           })[33m,[39m[0m[22m
+2024-05-29T08:37:56.8056615Z [2m[22m
+2024-05-29T08:37:56.8062690Z [2m      [2mat property ([22m[2msrc/fileA.ts[2m:230:38)[22m[2m[22m
+2024-05-29T08:37:56.8063920Z [2m          at Array.map (<anonymous>)[22m
+2024-05-29T08:37:56.8065216Z [2m      [2mat map ([22m[2msrc/fileA.ts[2m:200:45)[22m[2m[22m
+2024-05-29T08:37:56.8067038Z [2m          at Array.reduce (<anonymous>)[22m
+2024-05-29T08:37:56.8068351Z [2m      [2mat reduce ([22m[2msrc/fileA.ts[2m:196:61)[22m[2m[22m
+2024-05-29T08:37:56.8118331Z
+2024-05-29T08:37:56.8118337Z
+2024-05-29T08:37:56.8125241Z [1mTest Suites: [22m[1m[31m1 failed[39m[22m, [1m[33m1 skipped[39m[22m, [1m[32m100 passed[39m[22m, 100 of 100 total
+2024-05-29T08:37:56.8127233Z [1mTests:       [22m[1m[31m1 failed[39m[22m, [1m[33m21 skipped[39m[22m, [1m[35m2 todo[39m[22m, [1m[32m100 passed[39m[22m, 100 total
+            "#;
+        let failing_tests = JestLogParser::parse(logs).unwrap();
+        assert_eq!(
+            failing_tests,
+            vec![
+                CheckError {
+                    path: "src/a.spec.tsx".to_string(),
+                    lines: vec![
+                        "\u{1b}[1m\u{1b}[31m\u{1b}[7mFAIL\u{1b}[27m\u{1b}[39m\u{1b}[22m src/a.spec.tsx (\u{1b}[31m\u{1b}[7m14728 ms\u{1b}[27m\u{1b}[39m)".to_string(),
+                        "  utilityFunction".to_string(),
+                        "    \u{1b}[31m✕\u{1b}[39m should perform action correctly (29 ms)".to_string(),
+                    ],
+                },
+                CheckError {
+                    path: "packages/foo/src/a.spec.tsx".to_string(),
+                    lines: vec![
+                        "\u{1b}[0m\u{1b}[7m\u{1b}[1m\u{1b}[31m FAIL \u{1b}[39m\u{1b}[22m\u{1b}[27m\u{1b}[0m \u{1b}[2mpackages/foo/src/\u{1b}[22m\u{1b}[1ma.spec.tsx\u{1b}[22m (\u{1b}[0m\u{1b}[1m\u{1b}[41m14.728 s\u{1b}[49m\u{1b}[22m\u{1b}[0m)".to_string(),
+                        "\u{1b}[1m\u{1b}[31m  \u{1b}[1m● \u{1b}[22m\u{1b}[1mutilityFunction › should perform action correctly\u{1b}[39m\u{1b}[22m".to_string(),
+                        "".to_string(),
+                        "    TypeError: Cannot read properties of undefined (reading 'property')".to_string(),
+                        "\u{1b}[2m\u{1b}[22m".to_string(),
+                        "\u{1b}[2m    \u{1b}[0m \u{1b}[90m 228 |\u{1b}[39m               \u{1b}[90m// To handle undefined properties safely\u{1b}[39m\u{1b}[22m".to_string(),
+                        "\u{1b}[2m     \u{1b}[90m 229 |\u{1b}[39m               isEnabled\u{1b}[33m:\u{1b}[39m\u{1b}[22m".to_string(),
+                        "\u{1b}[2m    \u{1b}[31m\u{1b}[1m>\u{1b}[22m\u{1b}[2m\u{1b}[39m\u{1b}[90m 230 |\u{1b}[39m                 object\u{1b}[33m.\u{1b}[39mproperty\u{1b}[33m.\u{1b}[39mmode \u{1b}[33m===\u{1b}[39m \u{1b}[32m'active'\u{1b}[39m\u{1b}[33m,\u{1b}[39m\u{1b}[22m".to_string(),
+                        "\u{1b}[2m     \u{1b}[90m     |\u{1b}[39m                                      \u{1b}[31m\u{1b}[1m^\u{1b}[22m\u{1b}[2m\u{1b}[39m\u{1b}[22m".to_string(),
+                        "\u{1b}[2m     \u{1b}[90m 231 |\u{1b}[39m               \u{1b}[33m...\u{1b}[39m(isEnabled \u{1b}[33m?\u{1b}[39m { isEnabled } \u{1b}[33m:\u{1b}[39m {})\u{1b}[33m,\u{1b}[39m\u{1b}[22m".to_string(),
+                        "\u{1b}[2m     \u{1b}[90m 232 |\u{1b}[39m             }\u{1b}[33m;\u{1b}[39m\u{1b}[22m".to_string(),
+                        "\u{1b}[2m     \u{1b}[90m 233 |\u{1b}[39m           })\u{1b}[33m,\u{1b}[39m\u{1b}[0m\u{1b}[22m".to_string(),
+                        "\u{1b}[2m\u{1b}[22m".to_string(),
+                        "\u{1b}[2m      \u{1b}[2mat property (\u{1b}[22m\u{1b}[2msrc/fileA.ts\u{1b}[2m:230:38)\u{1b}[22m\u{1b}[2m\u{1b}[22m".to_string(),
+                        "\u{1b}[2m          at Array.map (<anonymous>)\u{1b}[22m".to_string(),
+                        "\u{1b}[2m      \u{1b}[2mat map (\u{1b}[22m\u{1b}[2msrc/fileA.ts\u{1b}[2m:200:45)\u{1b}[22m\u{1b}[2m\u{1b}[22m".to_string(),
+                        "\u{1b}[2m          at Array.reduce (<anonymous>)\u{1b}[22m".to_string(),
+                        "\u{1b}[2m      \u{1b}[2mat reduce (\u{1b}[22m\u{1b}[2msrc/fileA.ts\u{1b}[2m:196:61)\u{1b}[22m\u{1b}[2m\u{1b}[22m".to_string(),
+                    ],
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn test_find_next_non_ansi_char() {
+        let str = " \u{1b}[32m\u{1b}[31m ";
+        let start_col = 1;
+        assert_eq!(find_next_non_ansi_char(str, start_col), Some(' '));
     }
 }
