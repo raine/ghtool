@@ -340,7 +340,7 @@ fn add_command_info(
         check_run_command_map.insert(check_run.id, command_type);
         command_check_run_map
             .entry(command_type)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(check_run.id);
     }
 }
